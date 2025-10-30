@@ -1,25 +1,21 @@
-import './style.css'
-import typescriptLogo from './typescript.svg'
-import viteLogo from '/vite.svg'
-import { setupCounter } from './counter.ts'
-import './pwa'
+// src/main.ts
+import Phaser from 'phaser'
+import GameScene from './phaser/GameScene'
+import { GRID, TILE_SIZE_PX } from './game/constants'
+import './pwa' // registers the service worker (okay if vite-plugin-pwa present)
 
-document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-  <div>
-    <a href="https://vite.dev" target="_blank">
-      <img src="${viteLogo}" class="logo" alt="Vite logo" />
-    </a>
-    <a href="https://www.typescriptlang.org/" target="_blank">
-      <img src="${typescriptLogo}" class="logo vanilla" alt="TypeScript logo" />
-    </a>
-    <h1>Vite + TypeScript</h1>
-    <div class="card">
-      <button id="counter" type="button"></button>
-    </div>
-    <p class="read-the-docs">
-      Click on the Vite and TypeScript logos to learn more
-    </p>
-  </div>
-`
+const width = GRID.cols * TILE_SIZE_PX
+const height = GRID.rows * TILE_SIZE_PX
 
-setupCounter(document.querySelector<HTMLButtonElement>('#counter')!)
+const config: Phaser.Types.Core.GameConfig = {
+  type: Phaser.AUTO,
+  parent: 'app',            // mount into <div id="app"></div>
+  width,
+  height,
+  backgroundColor: '#000000',
+  pixelArt: true,
+  antialias: false,
+  scene: [GameScene],
+}
+
+export default new Phaser.Game(config)
