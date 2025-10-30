@@ -1,5 +1,6 @@
 // src/phaser/StartScene.ts
 import Phaser from 'phaser'
+import { requestFullscreenIfPossible } from '../utils/fullscreen'
 
 export default class StartScene extends Phaser.Scene {
   constructor() { super('StartScene') }
@@ -40,7 +41,10 @@ export default class StartScene extends Phaser.Scene {
       }).setOrigin(0.5)
     }
 
-    const start = () => this.scene.start('GameScene')
+    const start = () => {
+      requestFullscreenIfPossible();
+      this.scene.start('GameScene');
+    }
     this.input.once('pointerup', start)
     this.input.keyboard?.once('keydown-SPACE', start)
     this.input.keyboard?.once('keydown-ENTER', start)
