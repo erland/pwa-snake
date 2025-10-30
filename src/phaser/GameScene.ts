@@ -40,11 +40,34 @@ export default class GameScene extends Phaser.Scene {
   constructor() {
     super('GameScene')
   }
+  // --- ensure we detect touch reliably on iOS / PWA / desktop spoofing ---
+  private detectTouch(): boolean {
+    const phaserTouch = !!this.sys?.game?.device?.input?.touch
+    const coarse = typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches
+    const maxPoints = typeof navigator !== 'undefined' ? (navigator as any).maxTouchPoints ?? 0 : 0
+    const ontouch = typeof window !== 'undefined' && ('ontouchstart' in window)
+    return Boolean(phaserTouch || coarse || ontouch || maxPoints > 0)
+  }
+
+  private destroyDPad() {
+    this.btnUp?.destroy()
+    this.btnDown?.destroy()
+    this.btnLeft?.destroy()
+    this.btnRight?.destroy()
+    this.btnUp = this.btnDown = this.btnLeft = this.btnRight = undefined
+    this.dpadCreated = false
+  }
 
   create() {
     // Decide if we should show on-screen controls (touch devices)
-    const hasTouch = this.sys.game.device.input.touch || window.matchMedia?.('(pointer: coarse)').matches
-    this.showDPad = !!hasTouch
+    this.showDPad = this.detectTouch()
+    // Optional local override for debugging (set via DevTools):
+    try {
+      const override = localStorage.getItem('snakeShowDpad')
+      if (override === '1') this.showDPad = true
+      if (override === '0') this.showDPad = false
+    } catch {}
+   
 
     this.gfx = this.add.graphics()
     this.scoreText = this.add.text(8, 6, 'Score: 0', {
@@ -101,11 +124,15 @@ export default class GameScene extends Phaser.Scene {
       }
     })
 
-    // D-pad for mobile/tablets
+    // D-pad for mobile/tablets — ensure (re)creation and cleanup across restarts
+    this.destroyDPad()
     if (this.showDPad) {
       this.createDPad()
       this.positionDPad()
     }
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.destroyDPad())
+    this.events.once(Phaser.Scenes.Events.DESTROY, () => this.destroyDPad())
+   
     
     // Keep centered & reposition UI on resize
     this.scale.on('resize', () => {
@@ -325,17 +352,16 @@ export default class GameScene extends Phaser.Scene {
   
     // Read CSS safe-area insets (0 if not supported)
     const cs = getComputedStyle(document.documentElement)
-    const insetL = parseFloat(cs.getPropertyValue('--safe-left'))   || 0
     const insetR = parseFloat(cs.getPropertyValue('--safe-right'))  || 0
-    const insetT = parseFloat(cs.getPropertyValue('--safe-top'))    || 0
     const insetB = parseFloat(cs.getPropertyValue('--safe-bottom')) || 0
+   
   
     // Place the D-pad center so the *outermost* buttons stay within margins.
-    // Extents from center to any side = (2r + gap)
+    // Extent from center to outer edge = (2r + gap)
     const extent = 2 * r + gap
-  
     const cx = w - (margin + insetR + extent)  // bottom-right, fully inside
     const cy = h - (margin + insetB + extent)
+   
   
     this.btnUp.setPosition(   cx,             cy - (r + gap))
     this.btnDown.setPosition( cx,             cy + (r + gap))
