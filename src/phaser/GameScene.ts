@@ -25,6 +25,18 @@ export default class GameScene extends Phaser.Scene {
   private btnLeft?: Phaser.GameObjects.Container
   private btnRight?: Phaser.GameObjects.Container
 
+  // --- polish anim state ---
+  private pulse = 0 // advances a bit every tick
+
+  // --- theme palette (feel free to tweak) ---
+  private COLOR_BG = 0x000000
+  private COLOR_TILE = 0x101010      // checkerboard dark tile
+  private COLOR_FRAME = 0xffffff
+  private COLOR_SNAKE = 0x43a047     // body green
+  private COLOR_SNAKE_HEAD = 0x7cb342 // head green (brighter)
+  private COLOR_SNAKE_OUTLINE = 0x1b5e20
+  private COLOR_FOOD = 0xe91e63
+
   constructor() {
     super('GameScene')
   }
@@ -51,7 +63,7 @@ export default class GameScene extends Phaser.Scene {
     this.initState()
     this.draw()
 
-    // Timed tick
+    // Timed tick (logic)
     this.time.addEvent({
       delay: STEP_MS,
       loop: true,
@@ -131,6 +143,7 @@ export default class GameScene extends Phaser.Scene {
 
     this.scoreText.setText('Score: 0')
     this.overText.setVisible(false)
+    this.pulse = 0 // reset pulse animation
     this.positionUI()
   }
 
@@ -142,6 +155,10 @@ export default class GameScene extends Phaser.Scene {
     this.state = advance(this.state, this.rng)
     if (this.state.isGameOver) this.overText.setVisible(true)
     this.scoreText.setText('Score: ' + this.state.score)
+
+    // progress polish animation a bit each tick
+    this.pulse = (this.pulse + 0.18) % (Math.PI * 2)
+
     this.draw()
   }
 
@@ -157,25 +174,86 @@ export default class GameScene extends Phaser.Scene {
     this.gfx.clear()
   
     // Background
-    this.gfx.fillStyle(0x000000, 1)
+    this.gfx.fillStyle(this.COLOR_BG, 1)
     this.gfx.fillRect(0, 0, availW, availH)
+
+    // Checkerboard inside board (subtle)
+    if (cell >= 6) {
+      this.gfx.fillStyle(this.COLOR_TILE, 0.45)
+      for (let y = 0; y < GRID.rows; y++) {
+        for (let x = 0; x < GRID.cols; x++) {
+          if (((x + y) & 1) === 0) {
+            this.gfx.fillRect(offX + x * cell, offY + y * cell, cell, cell)
+          }
+        }
+      }
+    }
   
-    // --- NEW: board frame (inside the play area) ---
-    // Border width scales with cell size, min 2px
+    // Board frame (inside the play area)
     const border = Math.max(2, Math.floor(cell / 8))
-    this.gfx.lineStyle(border, 0xffffff, 0.75)
-    // Using -1 keeps the stroke fully inside; the 0.5 offset helps crispness on some renderers.
+    this.gfx.lineStyle(border, this.COLOR_FRAME, 0.85)
     this.gfx.strokeRect(offX + 0.5, offY + 0.5, boardW - 1, boardH - 1)
+
+    // Food (pulsing circle with small highlight)
+    const fx = offX + (this.state.food.x + 0.5) * cell
+    const fy = offY + (this.state.food.y + 0.5) * cell
+    const baseR = Math.max(3, cell * 0.33)
+    const r = baseR * (1 + 0.08 * Math.sin(this.pulse))
+    this.gfx.fillStyle(this.COLOR_FOOD, 1)
+    this.gfx.fillCircle(fx, fy, r)
+    // highlight dot
+    this.gfx.fillStyle(0xffffff, 0.85)
+    this.gfx.fillCircle(fx - r * 0.35, fy - r * 0.35, Math.max(1, r * 0.25))
   
-    // Food
-    this.gfx.fillStyle(0xe91e63, 1)
-    this.gfx.fillRect(offX + this.state.food.x * cell, offY + this.state.food.y * cell, cell, cell)
-  
-    // Snake
-    this.gfx.fillStyle(0x4caf50, 1)
+    // Snake (rounded segments with thin outline; brighter head + eyes)
+    const pad = Math.max(1, Math.floor(cell * 0.12))
+    const segW = Math.max(1, cell - pad * 2)
+    const segH = segW
+    const radius = Math.max(2, Math.floor(segW * 0.25))
     for (let i = 0; i < this.state.snake.length; i++) {
       const seg = this.state.snake[i]
-      this.gfx.fillRect(offX + seg.x * cell, offY + seg.y * cell, cell, cell)
+      const x = offX + seg.x * cell + pad
+      const y = offY + seg.y * cell + pad
+
+      const isHead = i === 0
+      const fill = isHead ? this.COLOR_SNAKE_HEAD : this.COLOR_SNAKE
+      this.gfx.fillStyle(fill, 1)
+      this.gfx.fillRoundedRect(x, y, segW, segH, radius)
+
+      // outline for definition
+      this.gfx.lineStyle(Math.max(1, Math.floor(cell * 0.06)), this.COLOR_SNAKE_OUTLINE, 0.6)
+      this.gfx.strokeRoundedRect(x, y, segW, segH, radius)
+
+      // Head eyes (two dots facing direction)
+      if (isHead && cell >= 8) {
+        const eyeR = Math.max(1, Math.floor(cell * 0.08))
+        const eyeOffset = Math.max(1, Math.floor(segW * 0.22))
+        const frontOffset = Math.max(1, Math.floor(segW * 0.28))
+        let ex1 = x + segW / 2, ey1 = y + segH / 2
+        let ex2 = ex1, ey2 = ey1
+
+        switch (this.state.dir) {
+          case 'right':
+            ex1 = x + segW - frontOffset; ey1 = y + eyeOffset
+            ex2 = x + segW - frontOffset; ey2 = y + segH - eyeOffset
+            break
+          case 'left':
+            ex1 = x + frontOffset; ey1 = y + eyeOffset
+            ex2 = x + frontOffset; ey2 = y + segH - eyeOffset
+            break
+          case 'up':
+            ex1 = x + eyeOffset; ey1 = y + frontOffset
+            ex2 = x + segW - eyeOffset; ey2 = y + frontOffset
+            break
+          case 'down':
+            ex1 = x + eyeOffset; ey1 = y + segH - frontOffset
+            ex2 = x + segW - eyeOffset; ey2 = y + segH - frontOffset
+            break
+        }
+        this.gfx.fillStyle(0xffffff, 0.95)
+        this.gfx.fillCircle(ex1, ey1, eyeR)
+        this.gfx.fillCircle(ex2, ey2, eyeR)
+      }
     }
   }
 
