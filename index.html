@@ -9,15 +9,26 @@
     <!-- iOS PWA friendly -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <link rel="apple-touch-icon" href="/icons/apple-touch-icon-180.png" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png" />
     
     <title>Snake</title>
     <style>
+      :root {
+        --safe-left: env(safe-area-inset-left);
+        --safe-right: env(safe-area-inset-right);
+        --safe-top: env(safe-area-inset-top);
+        --safe-bottom: env(safe-area-inset-bottom);
+      }
       html, body, #app { height: 100svh; margin: 0; background: #000; }
       #app { touch-action: none; }
       body { overscroll-behavior: none; }
       /* Respect iOS safe areas when installed full screen */
-      body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+      body {
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+      }
     </style>
   </head>      
   <body>

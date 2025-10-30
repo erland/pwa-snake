@@ -180,19 +180,22 @@ export default class GameScene extends Phaser.Scene {
 
   private makeButton(dir: Dir, label: string): Phaser.GameObjects.Container {
     const r = Math.max(18, Math.min(this.scale.width, this.scale.height) * 0.07)
+  
+    // Circle is the *interactive* element (not the container)
     const bg = this.add.circle(0, 0, r, 0xffffff, 0.12)
-      .setStrokeStyle(2, 0xffffff, 0.35).setDepth(30)
-      .setInteractive({ useHandCursor: false }) // circle hit area
+      .setStrokeStyle(2, 0xffffff, 0.35)
+      .setDepth(30)
+      .setInteractive({ useHandCursor: false })
+  
     const txt = this.add.text(0, 0, label, {
       fontFamily: 'monospace',
       fontSize: Math.round(r * 0.9) + 'px',
       color: '#ffffff',
     }).setOrigin(0.5).setDepth(31)
-
+  
     const c = this.add.container(0, 0, [bg, txt]).setDepth(32)
-    c.setSize(r * 2, r * 2)
-    c.setInteractive(new Phaser.Geom.Circle(0, 0, r), Phaser.Geom.Circle.Contains)
-
+    c.setSize(r * 2, r * 2) // layout only (no interactive on container)
+  
     const press = () => {
       if (this.state.isGameOver) {
         this.initState()
@@ -206,13 +209,15 @@ export default class GameScene extends Phaser.Scene {
         this.time.delayedCall(80, () => bg.setFillStyle(0xffffff, 0.12))
       }
     }
-    c.on('pointerdown', press)
-    c.on('pointerup', () => bg.setFillStyle(0xffffff, 0.12))
-    c.on('pointerout', () => bg.setFillStyle(0xffffff, 0.12))
-
+  
+    // Bind events to the circle so hit area matches visuals
+    bg.on('pointerdown', press)
+    bg.on('pointerup',   () => bg.setFillStyle(0xffffff, 0.12))
+    bg.on('pointerout',  () => bg.setFillStyle(0xffffff, 0.12))
+  
     return c
   }
-
+  
   private createDPad() {
     if (this.dpadCreated) return
     this.btnUp = this.makeButton('up', '↑')
@@ -224,19 +229,32 @@ export default class GameScene extends Phaser.Scene {
 
   private positionDPad() {
     if (!this.dpadCreated || !this.btnUp || !this.btnDown || !this.btnLeft || !this.btnRight) return
+  
     const w = this.scale.width
     const h = this.scale.height
+  
+    // Button radius and spacing scale with screen size
     const r = Math.max(18, Math.min(w, h) * 0.07)
     const gap = Math.max(8, r * 0.25)
     const margin = Math.max(8, Math.min(w, h) * 0.04)
-
-    // bottom-right layout
-    const cx = w - (r + margin)
-    const cy = h - (r + margin)
-
-    this.btnUp.setPosition(cx, cy - (r + gap))
-    this.btnDown.setPosition(cx, cy + (r + gap))
-    this.btnLeft.setPosition(cx - (r + gap), cy)
+  
+    // Read CSS safe-area insets (0 if not supported)
+    const cs = getComputedStyle(document.documentElement)
+    const insetL = parseFloat(cs.getPropertyValue('--safe-left'))   || 0
+    const insetR = parseFloat(cs.getPropertyValue('--safe-right'))  || 0
+    const insetT = parseFloat(cs.getPropertyValue('--safe-top'))    || 0
+    const insetB = parseFloat(cs.getPropertyValue('--safe-bottom')) || 0
+  
+    // Place the D-pad center so the *outermost* buttons stay within margins.
+    // Extents from center to any side = (2r + gap)
+    const extent = 2 * r + gap
+  
+    const cx = w - (margin + insetR + extent)  // bottom-right, fully inside
+    const cy = h - (margin + insetB + extent)
+  
+    this.btnUp.setPosition(   cx,             cy - (r + gap))
+    this.btnDown.setPosition( cx,             cy + (r + gap))
+    this.btnLeft.setPosition( cx - (r + gap), cy)
     this.btnRight.setPosition(cx + (r + gap), cy)
   }
 }
