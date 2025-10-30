@@ -7,6 +7,8 @@ import { advance } from '../game/step'
 import { MathRandom } from '../game/rng'
 import { isOpposite } from '../game/direction'
 
+type Dir = GameState['dir']
+
 export default class GameScene extends Phaser.Scene {
   private gfx!: Phaser.GameObjects.Graphics
   private scoreText!: Phaser.GameObjects.Text
@@ -15,11 +17,23 @@ export default class GameScene extends Phaser.Scene {
   private rng = new MathRandom()
   private state!: GameState
 
+  // On-screen D-pad (decide later in create())
+  private showDPad!: boolean
+  private dpadCreated = false
+  private btnUp?: Phaser.GameObjects.Container
+  private btnDown?: Phaser.GameObjects.Container
+  private btnLeft?: Phaser.GameObjects.Container
+  private btnRight?: Phaser.GameObjects.Container
+
   constructor() {
     super('GameScene')
   }
 
   create() {
+    // Decide if we should show on-screen controls (touch devices)
+    const hasTouch = this.sys.game.device.input.touch || window.matchMedia?.('(pointer: coarse)').matches
+    this.showDPad = !!hasTouch
+
     this.gfx = this.add.graphics()
     this.scoreText = this.add.text(8, 6, 'Score: 0', {
       fontFamily: 'monospace',
@@ -47,7 +61,7 @@ export default class GameScene extends Phaser.Scene {
     // Keyboard input
     this.input.keyboard!.on('keydown', (e: KeyboardEvent) => {
       const k = e.code
-      let nextDir: typeof this.state.dir | null = null
+      let nextDir: Dir | null = null
       if (k === 'ArrowUp' || k === 'KeyW') nextDir = 'up'
       else if (k === 'ArrowDown' || k === 'KeyS') nextDir = 'down'
       else if (k === 'ArrowLeft' || k === 'KeyA') nextDir = 'left'
@@ -64,35 +78,39 @@ export default class GameScene extends Phaser.Scene {
       }
     })
 
-    // Simple swipe input for touch devices
+    // Swipe input
     let sx = 0, sy = 0
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
       sx = p.x; sy = p.y
     })
     this.input.on('pointerup', (p: Phaser.Input.Pointer) => {
-      // restart on tap if game over (works on iPhone)
+      // Tap to restart when game over
       if (this.state.isGameOver) {
         this.initState()
         this.draw()
         return
       }
-
       const dx = p.x - sx
       const dy = p.y - sy
       const adx = Math.abs(dx), ady = Math.abs(dy)
-      const threshold = 10 // pixels
+      const threshold = 12
       if (adx < threshold && ady < threshold) return
-      let nextDir: typeof this.state.dir
-      if (adx > ady) nextDir = dx > 0 ? 'right' : 'left'
-      else nextDir = dy > 0 ? 'down' : 'up'
+      const nextDir: Dir = adx > ady ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up')
       if (!isOpposite(this.state.dir, nextDir)) {
         this.state.pendingDir = nextDir
       }
     })
 
-    // Redraw on resize so centering stays correct
+    // D-pad for mobile/tablets
+    if (this.showDPad) {
+      this.createDPad()
+      this.positionDPad()
+    }
+    
+    // Keep centered & reposition UI on resize
     this.scale.on('resize', () => {
       this.positionUI()
+      if (this.showDPad) this.positionDPad()
       this.draw()
     })
   }
@@ -102,7 +120,6 @@ export default class GameScene extends Phaser.Scene {
     const startHeadX = Math.floor(GRID.cols / 2)
     const snake: Point[] = []
     for (let i = 0; i < START_LEN; i++) {
-      // start facing START_DIR ('right' by default)
       snake.push({ x: startHeadX - i, y: midY })
     }
 
@@ -124,15 +141,12 @@ export default class GameScene extends Phaser.Scene {
   }
 
   private positionUI() {
-    // Keep game-over text centered on resize
     this.overText.setPosition(this.scale.width / 2, this.scale.height / 2)
   }
 
   private onTick() {
     this.state = advance(this.state, this.rng)
-    if (this.state.isGameOver) {
-      this.overText.setVisible(true)
-    }
+    if (this.state.isGameOver) this.overText.setVisible(true)
     this.scoreText.setText('Score: ' + this.state.score)
     this.draw()
   }
@@ -160,5 +174,69 @@ export default class GameScene extends Phaser.Scene {
       const seg = this.state.snake[i]
       this.gfx.fillRect(offX + seg.x * cell, offY + seg.y * cell, cell, cell)
     }
+  }
+
+  // ---------- D-Pad creation & layout ----------
+
+  private makeButton(dir: Dir, label: string): Phaser.GameObjects.Container {
+    const r = Math.max(18, Math.min(this.scale.width, this.scale.height) * 0.07)
+    const bg = this.add.circle(0, 0, r, 0xffffff, 0.12)
+      .setStrokeStyle(2, 0xffffff, 0.35).setDepth(30)
+      .setInteractive({ useHandCursor: false }) // circle hit area
+    const txt = this.add.text(0, 0, label, {
+      fontFamily: 'monospace',
+      fontSize: Math.round(r * 0.9) + 'px',
+      color: '#ffffff',
+    }).setOrigin(0.5).setDepth(31)
+
+    const c = this.add.container(0, 0, [bg, txt]).setDepth(32)
+    c.setSize(r * 2, r * 2)
+    c.setInteractive(new Phaser.Geom.Circle(0, 0, r), Phaser.Geom.Circle.Contains)
+
+    const press = () => {
+      if (this.state.isGameOver) {
+        this.initState()
+        this.draw()
+        return
+      }
+      if (!isOpposite(this.state.dir, dir)) {
+        this.state.pendingDir = dir
+        // visual feedback
+        bg.setFillStyle(0xffffff, 0.24)
+        this.time.delayedCall(80, () => bg.setFillStyle(0xffffff, 0.12))
+      }
+    }
+    c.on('pointerdown', press)
+    c.on('pointerup', () => bg.setFillStyle(0xffffff, 0.12))
+    c.on('pointerout', () => bg.setFillStyle(0xffffff, 0.12))
+
+    return c
+  }
+
+  private createDPad() {
+    if (this.dpadCreated) return
+    this.btnUp = this.makeButton('up', '↑')
+    this.btnDown = this.makeButton('down', '↓')
+    this.btnLeft = this.makeButton('left', '←')
+    this.btnRight = this.makeButton('right', '→')
+    this.dpadCreated = true
+  }
+
+  private positionDPad() {
+    if (!this.dpadCreated || !this.btnUp || !this.btnDown || !this.btnLeft || !this.btnRight) return
+    const w = this.scale.width
+    const h = this.scale.height
+    const r = Math.max(18, Math.min(w, h) * 0.07)
+    const gap = Math.max(8, r * 0.25)
+    const margin = Math.max(8, Math.min(w, h) * 0.04)
+
+    // bottom-right layout
+    const cx = w - (r + margin)
+    const cy = h - (r + margin)
+
+    this.btnUp.setPosition(cx, cy - (r + gap))
+    this.btnDown.setPosition(cx, cy + (r + gap))
+    this.btnLeft.setPosition(cx - (r + gap), cy)
+    this.btnRight.setPosition(cx + (r + gap), cy)
   }
 }
