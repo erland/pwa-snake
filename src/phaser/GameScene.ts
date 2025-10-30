@@ -44,7 +44,7 @@ export default class GameScene extends Phaser.Scene {
     this.overText = this.add.text(
       this.scale.width / 2,
       this.scale.height / 2,
-      'Game Over — Tap to restart (or press R)',
+      'Game Over — Tap to restart',
       { fontFamily: 'monospace', fontSize: '16px', color: '#ffffff' }
     ).setOrigin(0.5).setVisible(false).setDepth(10)
 
@@ -66,12 +66,6 @@ export default class GameScene extends Phaser.Scene {
       else if (k === 'ArrowDown' || k === 'KeyS') nextDir = 'down'
       else if (k === 'ArrowLeft' || k === 'KeyA') nextDir = 'left'
       else if (k === 'ArrowRight' || k === 'KeyD') nextDir = 'right'
-      else if (k === 'KeyR') {
-        if (this.state.isGameOver) {
-          this.initState()
-          this.draw()
-        }
-      }
 
       if (nextDir && !isOpposite(this.state.dir, nextDir)) {
         this.state.pendingDir = nextDir
