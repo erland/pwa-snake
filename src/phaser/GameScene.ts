@@ -155,19 +155,28 @@ export default class GameScene extends Phaser.Scene {
     const availW = this.scale.width
     const availH = this.scale.height
     const cell = Math.floor(Math.min(availW / GRID.cols, availH / GRID.rows)) || 1
-    const offX = Math.floor((availW - cell * GRID.cols) / 2)
-    const offY = Math.floor((availH - cell * GRID.rows) / 2)
-
+    const boardW = cell * GRID.cols
+    const boardH = cell * GRID.rows
+    const offX = Math.floor((availW - boardW) / 2)
+    const offY = Math.floor((availH - boardH) / 2)
+  
     this.gfx.clear()
-
+  
     // Background
     this.gfx.fillStyle(0x000000, 1)
     this.gfx.fillRect(0, 0, availW, availH)
-
+  
+    // --- NEW: board frame (inside the play area) ---
+    // Border width scales with cell size, min 2px
+    const border = Math.max(2, Math.floor(cell / 8))
+    this.gfx.lineStyle(border, 0xffffff, 0.75)
+    // Using -1 keeps the stroke fully inside; the 0.5 offset helps crispness on some renderers.
+    this.gfx.strokeRect(offX + 0.5, offY + 0.5, boardW - 1, boardH - 1)
+  
     // Food
     this.gfx.fillStyle(0xe91e63, 1)
     this.gfx.fillRect(offX + this.state.food.x * cell, offY + this.state.food.y * cell, cell, cell)
-
+  
     // Snake
     this.gfx.fillStyle(0x4caf50, 1)
     for (let i = 0; i < this.state.snake.length; i++) {
