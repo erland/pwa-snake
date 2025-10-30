@@ -90,12 +90,6 @@ export default class GameScene extends Phaser.Scene {
       sx = p.x; sy = p.y
     })
     this.input.on('pointerup', (p: Phaser.Input.Pointer) => {
-      // Tap to restart when game over
-      if (this.state.isGameOver) {
-        this.initState()
-        this.draw()
-        return
-      }
       const dx = p.x - sx
       const dy = p.y - sy
       const adx = Math.abs(dx), ady = Math.abs(dy)
@@ -153,7 +147,17 @@ export default class GameScene extends Phaser.Scene {
 
   private onTick() {
     this.state = advance(this.state, this.rng)
-    if (this.state.isGameOver) this.overText.setVisible(true)
+    if (this.state.isGameOver) {
+      const finalScore = this.state.score
+      // persist high score here as a safety (also done in GameOverScene)
+      try {
+        const prev = Number(localStorage.getItem('snakeHighScore') || '0')
+        if (finalScore > prev) localStorage.setItem('snakeHighScore', String(finalScore))
+      } catch {}
+      this.scene.start('GameOverScene', { score: finalScore })
+      return
+    }
+      
     this.scoreText.setText('Score: ' + this.state.score)
 
     // progress polish animation a bit each tick

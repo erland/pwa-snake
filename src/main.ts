@@ -1,6 +1,8 @@
 // src/main.ts
 import Phaser from 'phaser'
+import StartScene from './phaser/StartScene'
 import GameScene from './phaser/GameScene'
+import GameOverScene from './phaser/GameOverScene'
 import './pwa' // SW registration (no-op in dev if plugin disabled)
 
 const config: Phaser.Types.Core.GameConfig = {
@@ -13,7 +15,7 @@ const config: Phaser.Types.Core.GameConfig = {
   scale: {
     mode: Phaser.Scale.RESIZE
   },
-  scene: [GameScene],
+  scene: [StartScene, GameScene, GameOverScene], // StartScene runs first
 }
 
 export default new Phaser.Game(config)
