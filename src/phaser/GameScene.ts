@@ -1,6 +1,6 @@
 // src/phaser/GameScene.ts
 import Phaser from 'phaser'
-import { GRID, STEP_MS, START_LEN, START_DIR, TILE_SIZE_PX } from '../game/constants'
+import { GRID, STEP_MS, START_LEN, START_DIR } from '../game/constants'
 import type { GameState, Point } from '../game/types'
 import { placeFood } from '../game/rules'
 import { advance } from '../game/step'
@@ -21,18 +21,18 @@ export default class GameScene extends Phaser.Scene {
 
   create() {
     this.gfx = this.add.graphics()
-    this.scoreText = this.add.text(6, 4, 'Score: 0', {
+    this.scoreText = this.add.text(8, 6, 'Score: 0', {
       fontFamily: 'monospace',
       fontSize: '14px',
       color: '#ffffff',
-    })
+    }).setDepth(10)
 
     this.overText = this.add.text(
       this.scale.width / 2,
       this.scale.height / 2,
-      'Game Over — Press R to restart',
+      'Game Over — Tap to restart (or press R)',
       { fontFamily: 'monospace', fontSize: '16px', color: '#ffffff' }
-    ).setOrigin(0.5).setVisible(false)
+    ).setOrigin(0.5).setVisible(false).setDepth(10)
 
     this.initState()
     this.draw()
@@ -44,7 +44,7 @@ export default class GameScene extends Phaser.Scene {
       callback: () => this.onTick(),
     })
 
-    // Keyboard input: listen to DOM keydown and set pendingDir (no unused locals)
+    // Keyboard input
     this.input.keyboard!.on('keydown', (e: KeyboardEvent) => {
       const k = e.code
       let nextDir: typeof this.state.dir | null = null
@@ -59,12 +59,41 @@ export default class GameScene extends Phaser.Scene {
         }
       }
 
-      if (nextDir) {
-        // Apply at next tick; ignore opposite
-        if (!isOpposite(this.state.dir, nextDir)) {
-          this.state.pendingDir = nextDir
-        }
+      if (nextDir && !isOpposite(this.state.dir, nextDir)) {
+        this.state.pendingDir = nextDir
       }
+    })
+
+    // Simple swipe input for touch devices
+    let sx = 0, sy = 0
+    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      sx = p.x; sy = p.y
+    })
+    this.input.on('pointerup', (p: Phaser.Input.Pointer) => {
+      // restart on tap if game over (works on iPhone)
+      if (this.state.isGameOver) {
+        this.initState()
+        this.draw()
+        return
+      }
+
+      const dx = p.x - sx
+      const dy = p.y - sy
+      const adx = Math.abs(dx), ady = Math.abs(dy)
+      const threshold = 10 // pixels
+      if (adx < threshold && ady < threshold) return
+      let nextDir: typeof this.state.dir
+      if (adx > ady) nextDir = dx > 0 ? 'right' : 'left'
+      else nextDir = dy > 0 ? 'down' : 'up'
+      if (!isOpposite(this.state.dir, nextDir)) {
+        this.state.pendingDir = nextDir
+      }
+    })
+
+    // Redraw on resize so centering stays correct
+    this.scale.on('resize', () => {
+      this.positionUI()
+      this.draw()
     })
   }
 
@@ -73,6 +102,7 @@ export default class GameScene extends Phaser.Scene {
     const startHeadX = Math.floor(GRID.cols / 2)
     const snake: Point[] = []
     for (let i = 0; i < START_LEN; i++) {
+      // start facing START_DIR ('right' by default)
       snake.push({ x: startHeadX - i, y: midY })
     }
 
@@ -90,11 +120,16 @@ export default class GameScene extends Phaser.Scene {
 
     this.scoreText.setText('Score: 0')
     this.overText.setVisible(false)
+    this.positionUI()
+  }
+
+  private positionUI() {
+    // Keep game-over text centered on resize
+    this.overText.setPosition(this.scale.width / 2, this.scale.height / 2)
   }
 
   private onTick() {
-    const newState = advance(this.state, this.rng)
-    this.state = newState
+    this.state = advance(this.state, this.rng)
     if (this.state.isGameOver) {
       this.overText.setVisible(true)
     }
@@ -103,25 +138,27 @@ export default class GameScene extends Phaser.Scene {
   }
 
   private draw() {
-    const w = this.scale.width
-    const h = this.scale.height
-    const size = TILE_SIZE_PX
+    const availW = this.scale.width
+    const availH = this.scale.height
+    const cell = Math.floor(Math.min(availW / GRID.cols, availH / GRID.rows)) || 1
+    const offX = Math.floor((availW - cell * GRID.cols) / 2)
+    const offY = Math.floor((availH - cell * GRID.rows) / 2)
 
     this.gfx.clear()
 
     // Background
     this.gfx.fillStyle(0x000000, 1)
-    this.gfx.fillRect(0, 0, w, h)
+    this.gfx.fillRect(0, 0, availW, availH)
 
     // Food
     this.gfx.fillStyle(0xe91e63, 1)
-    this.gfx.fillRect(this.state.food.x * size, this.state.food.y * size, size, size)
+    this.gfx.fillRect(offX + this.state.food.x * cell, offY + this.state.food.y * cell, cell, cell)
 
     // Snake
     this.gfx.fillStyle(0x4caf50, 1)
     for (let i = 0; i < this.state.snake.length; i++) {
       const seg = this.state.snake[i]
-      this.gfx.fillRect(seg.x * size, seg.y * size, size, size)
+      this.gfx.fillRect(offX + seg.x * cell, offY + seg.y * cell, cell, cell)
     }
   }
 }
