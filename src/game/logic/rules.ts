@@ -1,4 +1,4 @@
-// src/game/rules.ts
+// src/game/logic/rules.ts
 import type { GridConfig, Point } from "./types";
 import type { Random } from "./rng";
 

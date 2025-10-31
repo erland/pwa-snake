@@ -1,21 +1,15 @@
-// src/main.ts
-import Phaser from 'phaser'
-import StartScene from './phaser/StartScene'
-import GameScene from './phaser/GameScene'
-import GameOverScene from './phaser/GameOverScene'
-import './pwa' // SW registration (no-op in dev if plugin disabled)
+import "./pwa";
+import { GameHost } from "./framework/core/GameHost";
+import SnakeBootScene from "./game/SnakeBootScene";
+import SnakeMenuScene from "./game/SnakeMenuScene";
+import SnakePlayScene from "./game/SnakePlayScene";
+import SnakeGameOverScene from "./game/SnakeGameOverScene";
+import SnakePauseOverlay from "./game/SnakePauseOverlay";
 
-const config: Phaser.Types.Core.GameConfig = {
-  type: Phaser.AUTO,
-  parent: 'app',
-  backgroundColor: '#000000',
-  pixelArt: true,
-  antialias: false,
-  // Let Phaser canvas resize with the container (good for desktop + mobile)
-  scale: {
-    mode: Phaser.Scale.RESIZE
-  },
-  scene: [StartScene, GameScene, GameOverScene], // StartScene runs first
-}
-
-export default new Phaser.Game(config)
+GameHost.launch("app", [
+  new SnakeBootScene(),
+  new SnakeMenuScene(),
+  new SnakePlayScene(),
+  new SnakeGameOverScene(),
+  new SnakePauseOverlay(),
+]);

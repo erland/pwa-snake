@@ -1,4 +1,4 @@
-// src/game/types.ts
+// src/game/logic/types.ts
 export type Point = { x: number; y: number };
 
 export type Direction = "up" | "down" | "left" | "right";

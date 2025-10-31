@@ -1,4 +1,4 @@
-// src/game/direction.ts
+// src/game/logic/direction.ts
 import type { Direction, Point } from "./types";
 
 const OPP: Record<Direction, Direction> = {

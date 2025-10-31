@@ -1,4 +1,4 @@
-// src/game/rng.ts
+// src/game/logic/rng.ts
 export interface Random {
   // returns integer in [0, maxExclusive)
   nextInt(maxExclusive: number): number;
