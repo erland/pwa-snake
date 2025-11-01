@@ -8,11 +8,10 @@ export class GameHost {
     return new Phaser.Game({
       type: Phaser.AUTO,
       parent,
-      width: GAME_WIDTH,
-      height: GAME_HEIGHT,
       backgroundColor: BACKGROUND_COLOR,
-      physics: PHYSICS,
-      scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+      pixelArt: true,
+      antialias: false,
+      scale: { mode: Phaser.Scale.RESIZE },
       scene: scenes,
     });
   }

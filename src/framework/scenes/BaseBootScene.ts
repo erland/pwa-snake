@@ -19,7 +19,7 @@ export abstract class BaseBootScene extends Phaser.Scene {
 
   /** Subclass may configure scale/background/etc. */
   protected configureScale() {
-    this.scale.scaleMode = Phaser.Scale.FIT;
+    this.scale.scaleMode = Phaser.Scale.RESIZE;
     this.scale.pageAlignHorizontally = true;
     this.scale.pageAlignVertically = true;
   }
