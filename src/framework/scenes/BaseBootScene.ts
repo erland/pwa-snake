@@ -31,6 +31,6 @@ export abstract class BaseBootScene extends Phaser.Scene {
 
   /** Go to the first scene (menu by default). */
   protected onBootComplete() {
-    this.scene.start("MainMenu");
+    this.scene.start(this.getSceneKeys().menu);
   }
 }

@@ -47,6 +47,6 @@ export abstract class BaseMenuScene extends Phaser.Scene {
 
   /** Override to inject transition or setup. */
   protected startGame() {
-    this.scene.start("Play");
+    this.scene.start(this.getSceneKeys().play);
   }
 }
