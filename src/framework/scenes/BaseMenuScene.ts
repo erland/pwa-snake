@@ -1,23 +1,27 @@
 import Phaser from "phaser";
 import { events, EVT } from "../core/events";
-import { BaseTheme } from "../ui/BaseTheme";
+import { defaultTheme } from "../ui/defaultTheme";
+import type { Theme } from "../ui/Theme";
+import type { GameServices } from "../core/types";
 
 export abstract class BaseMenuScene extends Phaser.Scene {
-  protected theme: BaseTheme;
+  constructor() { super("MainMenu"); }
 
-  constructor(theme: BaseTheme) {
-    super("MainMenu");
-    this.theme = theme;
+  protected getTheme(): Theme {
+    const services = this.game.registry.get("services") as GameServices | undefined;
+    return services?.theme ?? defaultTheme;
   }
 
   create() {
     const { width, height } = this.scale;
     this.buildBackground();
 
-    this.add.text(width/2, height*0.35, this.theme.getTitle(), this.theme.textStyleLarge())
+    this.add
+      .text(width / 2, height * 0.35, this.getTheme().title, this.getTheme().typography.large)
       .setOrigin(0.5);
 
-    const start = this.add.text(width/2, height*0.55, this.getStartHint(), this.theme.textStyleSmall())
+    const start = this.add
+      .text(width / 2, height * 0.55, this.getStartHint(), this.getTheme().typography.small)
       .setOrigin(0.5)
       .setInteractive({ useHandCursor: true })
       .on("pointerup", () => this.startGame());
