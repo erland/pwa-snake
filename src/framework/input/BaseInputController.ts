@@ -1,24 +1,35 @@
 import Phaser from "phaser";
 
+/**
+ * Minimal input controller base with a stable lifecycle API.
+ * Scenes should call controller.attach() once after construction,
+ * poll() every frame (e.g., in Scene.update), and destroy() on shutdown.
+ */
 export abstract class BaseInputController {
   protected scene: Phaser.Scene;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
-    // Do NOT call onAttach() here; subclass state may not be ready yet.
   }
 
-  /** Call once after constructing the controller (scene will do this). */
+  /** Call once after constructing the controller. */
   public attach(): void {
     this.onAttach();
   }
 
-  /** Subclasses set up listeners (keys, pointers, gestures). */
-  protected onAttach(): void {}
+  /** Called each frame by the scene. */
+  public poll(): void {
+    this.onPoll();
+  }
 
-  /** Called from PlayScene.update for per-frame polling. */
-  public poll(): void {}
+  /** Called when the scene shuts down. Subclasses may override. */
+  public destroy(): void {
+    // no-op
+  }
 
-  /** Cleanup when scene shuts down. */
-  public destroy(): void {}
+  /** Subclass hook: set up listeners (keys, pointers, gestures, gamepad). */
+  protected abstract onAttach(): void;
+
+  /** Subclass hook: per-frame polling (read inputs, emit actions). */
+  protected abstract onPoll(): void;
 }
