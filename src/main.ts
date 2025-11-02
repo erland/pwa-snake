@@ -1,3 +1,4 @@
+// src/main.ts
 import "./pwa";
 import { GameHost } from "./framework/core/GameHost";
 import SnakeBootScene from "./game/SnakeBootScene";
@@ -7,9 +8,17 @@ import SnakeGameOverScene from "./game/SnakeGameOverScene";
 import SnakePauseOverlay from "./game/SnakePauseOverlay";
 
 GameHost.launch("app", [
-  new SnakeBootScene(),
-  new SnakeMenuScene(),
-  new SnakePlayScene(),
-  new SnakeGameOverScene(),
-  new SnakePauseOverlay(),
-]);
+  SnakeBootScene,
+  SnakeMenuScene,
+  SnakePlayScene,
+  SnakeGameOverScene,
+  SnakePauseOverlay,
+], {
+  width: 360,       // optional in RESIZE mode
+  height: 640,      // optional in RESIZE mode
+  backgroundColor: 0x000000,
+  scaleMode: "resize",
+  physics: false,
+  pixelArt: true,
+  antialias: false,
+});

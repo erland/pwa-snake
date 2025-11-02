@@ -349,8 +349,10 @@ export default class SnakePlayScene extends BasePlayScene {
 
   private updateBoardTransform() {
     const { w, h } = this.getBoardPixelSize();
-    const sw = this.scale.width;
-    const sh = this.scale.height;
+    const isResize = this.scale.mode === Phaser.Scale.RESIZE;
+    const sw = isResize ? this.scale.width  : (this.scale as any).displaySize?.width  ?? this.scale.width;
+    const sh = isResize ? this.scale.height : (this.scale as any).displaySize?.height ?? this.scale.height;
+
 
     // Base zoom ratio
     let z = this.FIT_MODE === "cover"
