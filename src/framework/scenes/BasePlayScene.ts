@@ -6,8 +6,8 @@ export abstract class BasePlayScene extends Phaser.Scene {
   private stepper: FixedStepper;
   private inputCtrl?: BaseInputController;
 
-  constructor(private cfg: { hz?: number; maxCatchUp?: number } = {}) {
-    super("Play");
+  constructor(private cfg: { hz?: number; maxCatchUp?: number } = {}, sceneKey = "Play") {
+    super(sceneKey);
     this.stepper = new FixedStepper(cfg.hz ?? 60, cfg.maxCatchUp ?? 5);
   }
 

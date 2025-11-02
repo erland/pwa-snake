@@ -1,3 +1,4 @@
+import { defaultSceneKeys, type SceneKeys } from "./sceneKeys";
 import Phaser from "phaser";
 import { events, EVT } from "../core/events";
 import { defaultTheme } from "../ui/defaultTheme";
@@ -5,6 +6,10 @@ import type { Theme } from "../ui/Theme";
 import type { GameServices } from "../core/types";
 
 export abstract class BaseMenuScene extends Phaser.Scene {
+  protected getSceneKeys(): SceneKeys {
+    const services: any = this.game.registry.get("services");
+    return (services && services.sceneKeys) || defaultSceneKeys;
+  }
   constructor() { super("MainMenu"); }
 
   protected getTheme(): Theme {
@@ -25,6 +30,8 @@ export abstract class BaseMenuScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setInteractive({ useHandCursor: true })
       .on("pointerup", () => this.startGame());
+
+    start.setName("startHint");
 
     this.input.keyboard?.on("keydown-ENTER", () => this.startGame());
     events.once(EVT.START_GAME, () => this.startGame());

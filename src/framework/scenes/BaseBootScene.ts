@@ -1,6 +1,11 @@
+import { defaultSceneKeys, type SceneKeys } from "./sceneKeys";
 import Phaser from "phaser";
 
 export abstract class BaseBootScene extends Phaser.Scene {
+  protected getSceneKeys(): SceneKeys {
+    const services: any = this.game.registry.get("services");
+    return (services && services.sceneKeys) || defaultSceneKeys;
+  }
   constructor() { super("Boot"); }
 
   /** Override to preload assets; keep super.preload() at top if you extend further. */
