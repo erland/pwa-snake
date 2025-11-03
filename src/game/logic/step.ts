@@ -1,46 +1,41 @@
-// src/game/step.ts
+// src/game/logic/step.ts
 import type { Direction, GameState, Point } from "./types";
-import { dirToVec, isOpposite } from "./direction";
-import { hitsSelf, hitsWall, pointEq, placeFood } from "./rules";
 import type { Random } from "./rng";
+import { resolveDirection, computeNextHead, collisionAt, moveSnake, nextScore, nextFood } from "./advance_parts";
 
-export function nextHead(head: Point, dir: Direction): Point {
-  const v = dirToVec(dir);
-  return { x: head.x + v.x, y: head.y + v.y };
-}
+/** Re-exported helper for tests that target the old path. */
+export { computeNextHead as nextHead };
 
+/**
+ * Advance the pure game state by one tick. No side effects.
+ * - Applies pending direction (reject 180° reverse)
+ * - Computes next head
+ * - Detects wall/self collisions
+ * - Moves or grows the snake
+ * - Updates score and (if needed) respawns food
+ */
 export function advance(state: GameState, rng: Random): GameState {
-  if (state.isGameOver) return state; // frozen
+  if (state.isGameOver) return state;
 
-  // Apply pending direction if valid
-  let dir = state.dir;
-  if (state.pendingDir && !isOpposite(state.dir, state.pendingDir)) {
-    dir = state.pendingDir;
+  // 1) Direction resolution
+  const dir: Direction = resolveDirection(state.dir, state.pendingDir);
+
+  // 2) Next head position
+  const head = state.snake[0];
+  const next = computeNextHead(head, dir);
+
+  // 3) Collision
+  const col = collisionAt(next, state);
+  if (col) {
+    return { ...state, dir, pendingDir: null, isGameOver: true };
   }
 
-  const currentHead = state.snake[0];
-  const newHead = nextHead(currentHead, dir);
+  // 4) Move snake and determine if we ate
+  const { newSnake, ate } = moveSnake(state, next);
 
-  if (hitsWall(newHead, state.grid) || hitsSelf(newHead, state.snake)) {
-    return {
-      ...state,
-      isGameOver: true
-    };
-  }
-
-  // Move: add new head
-  const newSnake = [newHead, ...state.snake];
-  let score = state.score;
-  let food = state.food;
-
-  if (pointEq(newHead, state.food)) {
-    // Grow: keep tail; respawn food
-    score += 1;
-    food = placeFood(newSnake, state.grid, rng);
-  } else {
-    // Regular move: drop tail
-    newSnake.pop();
-  }
+  // 5) Score + food
+  const score = nextScore(state.score, ate);
+  const food = nextFood(state, rng, ate);
 
   return {
     ...state,
@@ -48,6 +43,6 @@ export function advance(state: GameState, rng: Random): GameState {
     pendingDir: null,
     snake: newSnake,
     food,
-    score
+    score,
   };
 }
