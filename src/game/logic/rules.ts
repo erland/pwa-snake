@@ -1,6 +1,7 @@
 // src/game/logic/rules.ts
 import type { GridConfig, Point } from "./types";
-import type { Random } from "./rng";
+import type { RNG } from "../../framework/core/rng";
+import { randomInt } from "../../framework/core/rng";
 
 export function pointEq(a: Point, b: Point): boolean {
   return a.x === b.x && a.y === b.y;
@@ -15,7 +16,7 @@ export function hitsSelf(p: Point, snake: Point[]): boolean {
   return snake.some(seg => seg.x === p.x && seg.y === p.y);
 }
 
-export function placeFood(snake: Point[], grid: GridConfig, rng: Random): Point {
+export function placeFood(snake: Point[], grid: GridConfig, rng: RNG): Point {
   // Build list of free cells
   const occupied = new Set(snake.map(seg => `${seg.x},${seg.y}`));
   const free: Point[] = [];
@@ -30,6 +31,6 @@ export function placeFood(snake: Point[], grid: GridConfig, rng: Random): Point 
     // Rendering/input side may treat full grid as game complete if ever needed.
     return { x: 0, y: 0 };
   }
-  const idx = rng.nextInt(free.length);
+  const idx = randomInt(rng, free.length);
   return free[idx];
 }

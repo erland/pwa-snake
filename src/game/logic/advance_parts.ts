@@ -2,7 +2,7 @@
 import type { Direction, GameState, Point } from "./types";
 import { dirToVec, isOpposite } from "./direction";
 import { hitsSelf, hitsWall, pointEq, placeFood } from "./rules";
-import type { Random } from "./rng";
+import type { RNG } from "../../framework/core/rng";
 
 /** Choose a new direction, rejecting 180° reversals. */
 export function resolveDirection(current: Direction, pending: Direction | null): Direction {
@@ -19,9 +19,7 @@ export function computeNextHead(head: Point, dir: Direction): Point {
 /** Check for wall/self collisions at a point. */
 export function collisionAt(p: Point, state: GameState): "wall" | "self" | null {
   if (hitsWall(p, state.grid)) return "wall";
-  // We compare against the body excluding the last tail segment,
-  // because in a normal move the tail will vacate its cell.
-  // We'll handle the grow case separately by checking equality with food.
+  // Compare against the body excluding the last tail segment.
   const body = state.snake.slice(0, -1);
   return hitsSelf(p, body) ? "self" : null;
 }
@@ -40,6 +38,6 @@ export function nextScore(current: number, ate: boolean): number {
 }
 
 /** Possibly place new food if we just ate; otherwise keep old food. */
-export function nextFood(state: GameState, rng: Random, ate: boolean): Point {
+export function nextFood(state: GameState, rng: RNG, ate: boolean): Point {
   return ate ? placeFood(state.snake, state.grid, rng) : state.food;
 }

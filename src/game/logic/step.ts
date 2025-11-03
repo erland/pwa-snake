@@ -1,6 +1,6 @@
 // src/game/logic/step.ts
-import type { Direction, GameState, Point } from "./types";
-import type { Random } from "./rng";
+import type { Direction, GameState } from "./types";
+import type { RNG } from "../../framework/core/rng";
 import { resolveDirection, computeNextHead, collisionAt, moveSnake, nextScore, nextFood } from "./advance_parts";
 
 /** Re-exported helper for tests that target the old path. */
@@ -14,7 +14,7 @@ export { computeNextHead as nextHead };
  * - Moves or grows the snake
  * - Updates score and (if needed) respawns food
  */
-export function advance(state: GameState, rng: Random): GameState {
+export function advance(state: GameState, rng: RNG): GameState {
   if (state.isGameOver) return state;
 
   // 1) Direction resolution

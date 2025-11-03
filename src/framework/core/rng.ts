@@ -13,3 +13,26 @@ export class LCG implements RNG {
     return (this.seed % 0xFFFF_FFFF) / 0xFFFF_FFFF;
   }
 }
+
+/** Deterministic RNG for tests: cycles through a provided sequence of integers. */
+export class SeqRNG implements RNG {
+  private i = 0;
+  constructor(private seq: number[]) {}
+  next(): number {
+    if (!this.seq.length) return 0;
+    const v = this.seq[this.i % this.seq.length];
+    this.i++;
+    // Normalize to [0,1) for consumers; randomInt() will scale appropriately.
+    // If v might be >= 1, mod by a large number to keep in range.
+    const n = Number.isFinite(v) ? v : 0;
+    // Map integers to [0,1) deterministically; assume typical use is via randomInt().
+    return (n % 1000000) / 1000000;
+  }
+}
+
+/** Map float RNG.next() in [0,1) to an integer in [0, maxExclusive). */
+export function randomInt(rng: RNG, maxExclusive: number): number {
+  if (maxExclusive <= 1) return 0;
+  return Math.floor(rng.next() * maxExclusive);
+}
+
