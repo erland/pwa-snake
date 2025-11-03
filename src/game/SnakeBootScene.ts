@@ -1,19 +1,17 @@
 // src/game/SnakeBootScene.ts
 import { snakeTheme } from "./theme";
 import { BaseBootScene } from "../framework/scenes/BaseBootScene";
-import { createDefaultServices } from "../framework/core/services";
 
 export default class SnakeBootScene extends BaseBootScene {
-  create(): void {
-    // Build default services, then enable config-based fullscreen for BaseMenuScene.
-    const base = createDefaultServices(undefined, snakeTheme);
-    const services = {
-      ...base,
-      ui: { ...(base as any).ui, autoFullscreen: true }, // ← toggle here
-    };
-    // Register services first so MainMenu can read them
-    this.game.registry.set("services", services);
-    super.create(); // calls configureScale() and then start("MainMenu")
+  /** Supply the game theme to the framework service builder. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  protected override getBootTheme(): any {
+    return snakeTheme;
+  }
+
+  /** Enable config-based fullscreen for BaseMenuScene (and other UI flags if desired). */
+  protected override getServiceOverrides() {
+    return { ui: { autoFullscreen: true } };
   }
 
   protected preloadAssets(): void {
