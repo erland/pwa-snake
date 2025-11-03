@@ -17,7 +17,7 @@ export default class SnakePlayScene extends BasePlayScene {
   private fitter?: BoardFitter;
 
   // Renderer
-  private renderer?: SnakeRenderer;
+  private snakeRenderer?: SnakeRenderer;
   private pulse = 0; // food pulse anim
 
   // HUD
@@ -89,7 +89,7 @@ export default class SnakePlayScene extends BasePlayScene {
     this.fitter.attach();
 
     // Renderer
-    this.renderer = new SnakeRenderer(this, this.boardRoot);
+    this.snakeRenderer = new SnakeRenderer(this, this.boardRoot);
 
     // Clean up on end of run
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
@@ -99,14 +99,14 @@ export default class SnakePlayScene extends BasePlayScene {
       this.fitter = undefined;
       try { this.dpad?.destroy(); } catch {}
       this.dpad = undefined;
-      try { this.renderer?.destroy(); } catch {}
-      this.renderer = undefined;
+      try { this.snakeRenderer?.destroy(); } catch {}
+      this.snakeRenderer = undefined;
       try { this.hud?.destroy(); } catch {}
       this.hud = undefined;
     });
 
     // Initial draw
-    this.renderer.draw(this.state, this.pulse);
+    this.snakeRenderer.draw(this.state, this.pulse);
   }
 
   private queue(next: Direction) {
@@ -137,7 +137,7 @@ export default class SnakePlayScene extends BasePlayScene {
     this.hud?.updateScore(this.state.score);
 
     // Redraw frame
-    this.renderer?.draw(this.state, this.pulse);
+    this.snakeRenderer?.draw(this.state, this.pulse);
 
     // Eat FX when score increases
     if (this.state.score > this.prevScore) {
@@ -194,7 +194,7 @@ export default class SnakePlayScene extends BasePlayScene {
       if ("msMaxTouchPoints" in navigator && (navigator as any).msMaxTouchPoints > 0) return true;
     } catch {}
     try {
-      return window.matchMedia && matchMedia("(pointer: coarse)").matches;
+      return (typeof window.matchMedia === "function" && matchMedia("(pointer: coarse)").matches);
     } catch {}
     return false;
   }

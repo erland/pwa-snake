@@ -51,10 +51,10 @@ export class BoardFitter {
   /** Compute and apply the transform to root. */
   update(): void {
     const { w, h } = this.getSize();
-    const scaleManager = this.scene.scale;
-    const isResize = scaleManager.mode === Phaser.Scale.RESIZE;
-    const sw = isResize ? scaleManager.width  : (scaleManager as any).displaySize?.width  ?? scaleManager.width;
-    const sh = isResize ? scaleManager.height : (scaleManager as any).displaySize?.height ?? scaleManager.height;
+    const scaleManager = this.scene.scale as any;
+    const mode = scaleManager.mode ?? Phaser.Scale.RESIZE;
+    const sw = mode === Phaser.Scale.RESIZE ? scaleManager.width  : (scaleManager.displaySize?.width  ?? scaleManager.width);
+    const sh = mode === Phaser.Scale.RESIZE ? scaleManager.height : (scaleManager.displaySize?.height ?? scaleManager.height);
 
     let z = this.opts.fitMode === "cover"
       ? Math.max(sw / w, sh / h)

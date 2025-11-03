@@ -42,7 +42,7 @@ export abstract class BaseBootScene extends Phaser.Scene {
   public create(): void {
     // 1) Ensure services are present
     const existing: any = this.game.registry.get("services");
-    const base: any = existing ?? createDefaultServices(this.getBootSceneKeys(), this.getBootTheme());
+    const base: any = existing ?? createDefaultServices(undefined, this.getBootTheme(), this.getBootSceneKeys() as any);
     const overrides = this.getServiceOverrides() || {};
 
     // Shallow merge with a nested merge for 'ui'
