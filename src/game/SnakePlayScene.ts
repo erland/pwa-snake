@@ -3,22 +3,20 @@ import { BasePlayScene } from "../framework/scenes/BasePlayScene";
 import { SnakeInput } from "./SnakeInput";
 import * as L from "./logic";
 import type { Direction } from "./logic";
+import { BoardFitter } from "../framework/scene-helpers/BoardFitter";
+import { DPadOverlay } from "../framework/ui/DPadOverlay";
 
 export default class SnakePlayScene extends BasePlayScene {
   private state!: L.GameState;
   private nextDir!: Direction;
 
-  // Transform root: scales + centers entire board
+  // Board transform root + helpers
   private boardRoot!: Phaser.GameObjects.Container;
-  private onResizeCb?: () => void;
+  private fitter?: BoardFitter;
 
-  // Fit behavior (tweak if you like)
-  private FIT_MODE: "fit" | "cover" = "fit"; // was "fit"
-  private USE_INTEGER_ZOOM = false;              // keep pixels crisp
-
-  // Single graphics batch renderer (like digest_working/GameScene)
+  // Renderer
   private gfx!: Phaser.GameObjects.Graphics;
-  private pulse = 0; // food pulse anim (radians)
+  private pulse = 0; // food pulse anim
 
   // HUD
   private scoreText?: Phaser.GameObjects.Text;
@@ -28,15 +26,9 @@ export default class SnakePlayScene extends BasePlayScene {
   private prevScore = 0;
   private rng = new L.MathRandom();
 
-  // D-pad (mobile)
+  // D-pad
   private showDPad!: boolean;
-  private dpad?: {
-    up: Phaser.GameObjects.Container;
-    down: Phaser.GameObjects.Container;
-    left: Phaser.GameObjects.Container;
-    right: Phaser.GameObjects.Container;
-  };
-  private dpadResizeHandler?: () => void;
+  private dpad?: DPadOverlay;
 
   constructor() {
     super({ hz: Math.max(1, Math.floor(1000 / (L.TICK_MS ?? 100))), maxCatchUp: 5 });
@@ -59,11 +51,7 @@ export default class SnakePlayScene extends BasePlayScene {
     this.state.food = L.placeFood(this.state.snake, this.state.grid, this.rng);
 
     // Root that we scale + center (board space starts at 0,0)
-    this.boardRoot = this.add.container(0, 0).setDepth(0);
-
-    // ✅ Reduce sub-pixel shimmer during movement/shake
-    this.cameras.main.roundPixels = true;
-
+    this.boardRoot = this.add.container(0, 0);
     // Batch graphics renderer lives under boardRoot
     this.gfx = this.add.graphics();
     this.boardRoot.add(this.gfx);
@@ -92,26 +80,41 @@ export default class SnakePlayScene extends BasePlayScene {
     this.events.on("move_up",    () => this.queue("up"));
     this.events.on("move_down",  () => this.queue("down"));
 
-    // Optional on-screen D-pad
+    // Optional on-screen D-pad (touch detection with override)
     this.showDPad = this.detectTouch();
     try {
       const override = localStorage.getItem("snakeShowDpad");
       if (override === "1") this.showDPad = true;
       if (override === "0") this.showDPad = false;
     } catch {}
-    this.destroyDPad();
-    if (this.showDPad) this.createDPad();
+    if (this.showDPad) {
+      this.dpad = new DPadOverlay(this, {
+        events: { up: "move_up", down: "move_down", left: "move_left", right: "move_right" },
+      });
+      this.dpad.attach();
+    }
 
-    // Scale + center now and on resize
-    this.updateBoardTransform();
-    this.onResizeCb = () => this.updateBoardTransform();
-    this.scale.on("resize", this.onResizeCb);
+    // Centralized scale+center helper
+    this.fitter = new BoardFitter(
+      this,
+      this.boardRoot,
+      () => this.getBoardPixelSize(),
+      { fitMode: "fit", integerZoom: false }
+    );
+    this.fitter.attach();
 
     // Clean up on end of run
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.removeDirectionListeners();
       this.hardReset();
-      this.destroyDPad();
+      try { this.fitter?.destroy(); } catch {}
+      this.fitter = undefined;
+      try { this.dpad?.destroy(); } catch {}
+      this.dpad = undefined;
+      if (this.highResizeHandler) {
+        this.scale.off("resize", this.highResizeHandler);
+        this.highResizeHandler = undefined;
+      }
     });
 
     // Initial draw
@@ -129,10 +132,18 @@ export default class SnakePlayScene extends BasePlayScene {
     // Apply queued direction then advance pure logic with RNG
     this.state.pendingDir = this.nextDir;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    this.state = (L as any).advance.length >= 2 ? L.advance(this.state, this.rng) : L.advance(this.state);
+    this.state = (L as any).advance(this.state, this.rng);
 
-    // Animate food pulse
-    this.pulse = (this.pulse + 0.18) % (Math.PI * 2);
+    // Game over?
+    if (this.state.isGameOver) {
+      this.onGameOver();
+      return;
+    }
+  }
+
+  protected frame(deltaMs: number): void {
+    // Pulse anim for food
+    this.pulse += deltaMs * 0.02;
 
     // HUD
     this.updateHud(this.state.score);
@@ -145,20 +156,76 @@ export default class SnakePlayScene extends BasePlayScene {
       const head = this.state.snake[0];
       this.playEatFX(head);
     }
+  }
 
-    if (this.state.isGameOver) {
-      this.onGameOver();
+  private getBoardPixelSize() {
+    const { cols, rows } = this.state.grid;
+    const tile = L.TILE_SIZE;
+    return { w: cols * tile, h: rows * tile };
+  }
+
+  private updateHud(score: number) {
+    if (!this.scoreText) return;
+    if (score !== this.prevScore) {
+      this.scoreText.setText(`Score: ${score}`);
     }
   }
 
-  // ===== Drawing (mirrors digest_working look) =====================
+  private onGameOver() {
+    const finalScore = this.state.score;
+    try {
+      const prev = Number(localStorage.getItem("snakeHighScore") || "0");
+      if (finalScore > prev) localStorage.setItem("snakeHighScore", String(finalScore));
+    } catch {}
+    this.scene.start("GameOver", { score: finalScore });
+  }
 
-  private COLOR_TILE = 0x101010;     // checkerboard dark tile
-  private COLOR_FRAME = 0xffffff;    // inner frame
-  private COLOR_FOOD  = 0xe91e63;    // magenta
-  private COLOR_SNAKE = 0x43a047;    // body
-  private COLOR_HEAD  = 0x7cb342;    // head brighter
+  private hardReset() {
+    try { this.scoreText?.destroy(); } catch {}
+    try { this.highText?.destroy(); } catch {}
+    this.scoreText = undefined;
+    this.highText = undefined;
+
+    if (this.boardRoot) {
+      try { this.boardRoot.destroy(true); } catch {}
+      this.boardRoot = undefined as any;
+    }
+
+    try { this.gfx?.destroy(); } catch {}
+    this.gfx = undefined as any;
+
+    // Clear display list (safe at start of buildWorld)
+    try { this.children.removeAll(); } catch {}
+  }
+
+  private playEatFX(head: L.Point) {
+    const tile = L.TILE_SIZE;
+    const x = head.x * tile + tile / 2;
+    const y = head.y * tile + tile / 2;
+
+    const circ = this.add.circle(x, y, Math.max(3, Math.floor(tile * 0.15)), 0xffffff, 0.85);
+    this.boardRoot.add(circ);
+    this.tweens.add({
+      targets: circ,
+      scale: { from: 1, to: 1.8 },
+      alpha: { from: 0.85, to: 0 },
+      duration: 160,
+      ease: "Cubic.easeOut",
+      onComplete: () => circ.destroy(),
+    });
+  }
+
+  // ----------------------------- Rendering ------------------------------
+
+  private COLOR_BG    = 0x0b0b12;
+  private COLOR_BDARK = 0x16203a;    // checkerboard dark
+  private COLOR_BLITE = 0x1b2748;    // checkerboard light
+  private COLOR_FRAME = 0x1c1c29;    // frame
+  private COLOR_TILE  = 0xffffff;    // checker alpha
+  private COLOR_FOOD  = 0xffe082;    // apple-ish
   private COLOR_EDGE  = 0x1b5e20;    // outline
+  private COLOR_SNAKE = 0x43a047;    // body fill
+  private COLOR_HEAD  = 0xa5d6a7;    // head highlight
 
   private draw() {
     const g = this.gfx;
@@ -174,20 +241,20 @@ export default class SnakePlayScene extends BasePlayScene {
       g.fillStyle(this.COLOR_TILE, 0.45);
       for (let y = 0; y < rows; y++) {
         for (let x = 0; x < cols; x++) {
-          if (((x + y) & 1) === 0) {
-            g.fillRect(x * tile, y * tile, tile, tile);
+          if (((x ^ y) & 1) === 0) {
+            g.fillStyle(this.COLOR_BLITE, 1).fillRect(x * tile, y * tile, tile, tile);
+          } else {
+            g.fillStyle(this.COLOR_BDARK, 1).fillRect(x * tile, y * tile, tile, tile);
           }
         }
       }
     }
 
-    // inner white frame
+    // frame
     const border = Math.max(2, Math.floor(tile / 8));
     g.fillStyle(this.COLOR_FRAME, 0.85);
-    // top/bottom
     g.fillRect(0, 0, w, border);
     g.fillRect(0, h - border, w, border);
-    // left/right
     g.fillRect(0, 0, border, h);
     g.fillRect(w - border, 0, border, h);
 
@@ -198,25 +265,21 @@ export default class SnakePlayScene extends BasePlayScene {
     const baseR = Math.max(3, Math.floor(tile * 0.33));
     const r = baseR * (1 + 0.06 * Math.sin(this.pulse));
     g.fillStyle(this.COLOR_FOOD, 1).fillCircle(cx, cy, r);
-    g.fillStyle(0xffffff, 0.9).fillCircle(cx - r * 0.35, cy - r * 0.35, Math.max(1, Math.floor(r * 0.25)));
 
-    // snake segments (rounded rect + outline), eyes on head
-    const outline = Math.max(1, Math.floor(tile * 0.06));
-    const radius  = Math.min(6, Math.floor(tile * 0.3));
-
+    // snake segments
+    const outline = Math.max(1, Math.floor(tile * 0.10));
+    const headRadius = Math.max(0, Math.floor(tile * 0.22));
     for (let i = 0; i < this.state.snake.length; i++) {
-      const seg = this.state.snake[i];
-      const x = seg.x * tile;
-      const y = seg.y * tile;
+      const s = this.state.snake[i];
+      const x = s.x * tile;
+      const y = s.y * tile;
       const isHead = i === 0;
+      const radius = isHead ? headRadius : Math.max(0, Math.floor(tile * 0.2));
 
-      // outline under
       g.fillStyle(this.COLOR_EDGE, 0.6).fillRoundedRect(x, y, tile, tile, radius);
-      // body fill inset
       g.fillStyle(isHead ? this.COLOR_HEAD : this.COLOR_SNAKE, 1)
-       .fillRoundedRect(x + outline, y + outline, tile - 2 * outline, tile - 2 * outline, Math.max(0, radius - outline));
+        .fillRoundedRect(x + outline, y + outline, tile - 2 * outline, tile - 2 * outline, Math.max(0, radius - outline));
 
-      // eyes on head
       if (isHead && tile >= 8) {
         const eyeR = Math.max(1, Math.floor(tile * 0.08));
         const eyeOffset = Math.max(1, Math.floor(tile * 0.22));
@@ -224,228 +287,34 @@ export default class SnakePlayScene extends BasePlayScene {
         let ex1 = x + tile / 2, ey1 = y + tile / 2;
         let ex2 = ex1,            ey2 = ey1;
         switch (this.state.dir) {
-          case "right":
-            ex1 = x + tile - front; ey1 = y + eyeOffset;
-            ex2 = x + tile - front; ey2 = y + tile - eyeOffset; break;
-          case "left":
-            ex1 = x + front; ey1 = y + eyeOffset;
-            ex2 = x + front; ey2 = y + tile - eyeOffset; break;
-          case "up":
-            ex1 = x + eyeOffset; ey1 = y + front;
-            ex2 = x + tile - eyeOffset; ey2 = y + front; break;
-          case "down":
-          default:
-            ex1 = x + eyeOffset; ey1 = y + tile - front;
-            ex2 = x + tile - eyeOffset; ey2 = y + tile - front; break;
+          case "right": ex1 += front; ex2 += front; ey1 -= eyeOffset; ey2 += eyeOffset; break;
+          case "left":  ex1 -= front; ex2 -= front; ey1 -= eyeOffset; ey2 += eyeOffset; break;
+          case "up":    ey1 -= front; ey2 -= front; ex1 -= eyeOffset; ex2 += eyeOffset; break;
+          case "down":  ey1 += front; ey2 += front; ex1 -= eyeOffset; ex2 += eyeOffset; break;
         }
-        g.fillStyle(0xffffff, 0.95).fillCircle(ex1, ey1, eyeR).fillCircle(ex2, ey2, eyeR);
-        g.fillStyle(0x222222, 1).fillCircle(ex1, ey1, Math.max(1, Math.floor(eyeR * 0.6)))
-                                 .fillCircle(ex2, ey2, Math.max(1, Math.floor(eyeR * 0.6)));
+        g.fillStyle(0x111318, 1).fillCircle(ex1, ey1, eyeR).fillCircle(ex2, ey2, eyeR);
       }
     }
   }
 
-  private playEatFX(head: L.Point) {
-    // Softer shake when fractional zoom to avoid shimmer
-    const z = this.boardRoot?.scaleX || 1;
-    const fractional = Math.abs(z - Math.round(z)) > 1e-6;
-    const shakeAmp = fractional ? 0.0007 : 0.002; // old 0.002
-    try { this.cameras.main.shake(80, shakeAmp); } catch {}
-  
-    // Center of the eaten tile in board coordinates
-    const cx = head.x * L.TILE_SIZE + L.TILE_SIZE / 2;
-    const cy = head.y * L.TILE_SIZE + L.TILE_SIZE / 2;
-  
-    // Draw geometry at local (0,0), position the Graphics at (cx, cy)
-    const ring = this.add.graphics().setDepth(6);
-    this.boardRoot.add(ring);
-    ring.setPosition(cx, cy);                // <-- crucial: scale around the circle center
-    const r = Math.floor(L.TILE_SIZE * 0.35);
-    ring.lineStyle(2, 0x99ffaa, 0.9).strokeCircle(0, 0, r); // draw at local origin
-  
-    this.tweens.add({
-      targets: ring,
-      alpha: 0,
-      scale: 1.6,
-      duration: 180,
-      ease: "Quad.easeOut",
-      onComplete: () => ring.destroy(),
-    });
-  
-    try { (navigator as any)?.vibrate?.(10); } catch {}
-  }
+  // ----------------------------- Utilities ------------------------------
 
-  // ======================================================
-
-  // Keep Score + High in sync (and persist High)
-  private updateHud(score: number) {
-    this.scoreText?.setText(`Score: ${score}`);
-
-    let high = 0;
-    try { high = Number(localStorage.getItem("snakeHighScore") || "0"); } catch {}
-
-    if (score > high) {
-      high = score;
-      try { localStorage.setItem("snakeHighScore", String(high)); } catch {}
-    }
-    this.highText?.setText(`High: ${high}`);
-  }
-
-  private onGameOver() {
-    const finalScore = this.state.score;
+  private detectTouch(): boolean {
+    // Use Navigator properties if available; otherwise match media.
     try {
-      const prev = Number(localStorage.getItem("snakeHighScore") || "0");
-      if (finalScore > prev) localStorage.setItem("snakeHighScore", String(finalScore));
+      if ("maxTouchPoints" in navigator && (navigator as any).maxTouchPoints > 0) return true;
+      if ("msMaxTouchPoints" in navigator && (navigator as any).msMaxTouchPoints > 0) return true;
     } catch {}
-    this.scene.start("GameOver", { score: finalScore });
-  }
-
-  // ----- Cleanup helpers -----
-
-  private hardReset() {
-    if (this.onResizeCb) {
-      this.scale.off("resize", this.onResizeCb);
-      this.onResizeCb = undefined;
-    }
-
-    try { this.boardRoot?.destroy(true); } catch {}
-    this.boardRoot = undefined as any;
-
-    try { this.gfx?.destroy(); } catch {}
-    this.gfx = undefined as any;
-
-    // Clear display list (safe at start of buildWorld)
-    this.children.removeAll(true);
-
-    // Destroy HUD refs
-    try { this.scoreText?.destroy(); } catch {}
-    try { this.highText?.destroy(); } catch {}
-    this.scoreText = undefined;
-    this.highText = undefined;
-
-    if (this.highResizeHandler) {
-      this.scale.off("resize", this.highResizeHandler);
-      this.highResizeHandler = undefined;
-    }
-
-    // Remove any lingering listeners
-    this.removeDirectionListeners();
+    try {
+      return window.matchMedia && matchMedia("(pointer: coarse)").matches;
+    } catch {}
+    return false;
   }
 
   private removeDirectionListeners() {
-    this.events.removeAllListeners("move_left");
-    this.events.removeAllListeners("move_right");
-    this.events.removeAllListeners("move_up");
-    this.events.removeAllListeners("move_down");
-  }
-
-  // ----- Scale/center helpers -----
-
-  private getBoardPixelSize() {
-    const { cols, rows } = this.state.grid;
-    const tile = L.TILE_SIZE;
-    return { w: cols * tile, h: rows * tile };
-  }
-
-  private updateBoardTransform() {
-    const { w, h } = this.getBoardPixelSize();
-    const isResize = this.scale.mode === Phaser.Scale.RESIZE;
-    const sw = isResize ? this.scale.width  : (this.scale as any).displaySize?.width  ?? this.scale.width;
-    const sh = isResize ? this.scale.height : (this.scale as any).displaySize?.height ?? this.scale.height;
-
-
-    // Base zoom ratio
-    let z = this.FIT_MODE === "cover"
-      ? Math.max(sw / w, sh / h)   // fill screen, may crop
-      : Math.min(sw / w, sh / h);  // letterbox
-
-    // Snap only when upscaling; allow fractional downscale on tiny screens
-    if (this.USE_INTEGER_ZOOM && z >= 1) {
-      z = this.FIT_MODE === "cover" ? Math.ceil(z) : Math.floor(z);
-      if (z < 1) z = 1;
-    }
-
-    const ox = Math.floor((sw - w * z) / 2);
-    const oy = Math.floor((sh - h * z) / 2);
-
-    this.boardRoot.setScale(z);
-    this.boardRoot.setPosition(ox, oy);
-  }
-
-  // ----- D-Pad helpers -----
-
-  private detectTouch(): boolean {
-    const phaserTouch = !!this.sys?.game?.device?.input?.touch;
-    const coarse = !!window.matchMedia?.("(pointer: coarse)").matches;
-    const maxPoints = (navigator as any)?.maxTouchPoints ?? 0;
-    const ontouch = "ontouchstart" in window;
-    return Boolean(phaserTouch || coarse || ontouch || maxPoints > 0);
-  }
-
-  private makeCircleButton(label: string, emit: string) {
-    const r = 26;
-    const g = this.add.graphics();
-    g.fillStyle(0xffffff, 0.12).fillCircle(0, 0, r).lineStyle(2, 0xffffff, 0.5).strokeCircle(0, 0, r);
-    const t = this.add.text(0, 0, label, { fontFamily: "monospace", fontSize: "18px", color: "#ffffff" }).setOrigin(0.5);
-    const c = this.add.container(0, 0, [g, t]).setSize(r * 2, r * 2).setInteractive({ useHandCursor: true });
-
-    const reset = () => g
-      .clear()
-      .fillStyle(0xffffff, 0.12).fillCircle(0, 0, r)
-      .lineStyle(2, 0xffffff, 0.5).strokeCircle(0, 0, r);
-
-    c.on("pointerdown", () => {
-      this.events.emit(emit);
-      g.clear();
-      g.fillStyle(0xffffff, 0.24).fillCircle(0, 0, r).lineStyle(2, 0xffffff, 0.5).strokeCircle(0, 0, r);
-      this.time.delayedCall(80, reset);
-    });
-    c.on("pointerup", reset);
-    c.on("pointerout", reset);
-
-    return c;
-  }
-
-  private createDPad() {
-    const up = this.makeCircleButton("↑", "move_up");
-    const down = this.makeCircleButton("↓", "move_down");
-    const left = this.makeCircleButton("←", "move_left");
-    const right = this.makeCircleButton("→", "move_right");
-    this.dpad = { up, down, left, right };
-    this.positionDPad();
-
-    this.dpadResizeHandler = () => this.positionDPad();
-    this.scale.on("resize", this.dpadResizeHandler);
-  }
-
-  private positionDPad() {
-    if (!this.dpad) return;
-    const w = this.scale.width, h = this.scale.height;
-    const cs = getComputedStyle(document.documentElement);
-    const insetR = parseFloat(cs.getPropertyValue("--safe-right")) || 0;
-    const insetB = parseFloat(cs.getPropertyValue("--safe-bottom")) || 0;
-    const r = Math.max(18, Math.min(w, h) * 0.07);
-    const gap = Math.max(8, r * 0.25);
-    const margin = Math.max(8, Math.min(w, h) * 0.04);
-    const extent = 2 * r + gap;
-    const cx = w - (margin + insetR + extent);
-    const cy = h - (margin + insetB + extent);
-    this.dpad.up.setPosition(   cx,             cy - (r + gap));
-    this.dpad.down.setPosition( cx,             cy + (r + gap));
-    this.dpad.left.setPosition( cx - (r + gap), cy);
-    this.dpad.right.setPosition(cx + (r + gap), cy);
-  }
-
-  private destroyDPad() {
-    if (this.dpadResizeHandler) {
-      this.scale.off("resize", this.dpadResizeHandler);
-      this.dpadResizeHandler = undefined;
-    }
-    if (!this.dpad) return;
-    try { this.dpad.up.destroy(); } catch {}
-    try { this.dpad.down.destroy(); } catch {}
-    try { this.dpad.left.destroy(); } catch {}
-    try { this.dpad.right.destroy(); } catch {}
-    this.dpad = undefined;
+    this.events.removeListener("move_left");
+    this.events.removeListener("move_right");
+    this.events.removeListener("move_up");
+    this.events.removeListener("move_down");
   }
 }
