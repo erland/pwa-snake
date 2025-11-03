@@ -4,6 +4,7 @@ import { events, EVT } from "../core/events";
 import { defaultTheme } from "../ui/defaultTheme";
 import type { Theme } from "../ui/Theme";
 import type { GameServices } from "../core/types";
+import { requestFullscreenIfPossible } from "../utils/fullscreen";
 
 export abstract class BaseMenuScene extends Phaser.Scene {
   constructor() { super("MainMenu"); }
@@ -22,9 +23,21 @@ export abstract class BaseMenuScene extends Phaser.Scene {
     return services?.theme ?? defaultTheme;
   }
 
+  /** Accessor for the optional UI config stored in services (untyped for safety). */
+  protected getUiConfig(): { autoFullscreen?: boolean } {
+    const services: any = this.game.registry.get("services");
+    return (services && services.ui) || {};
+  }
+
   /** Override to customize the title (defaults to theme.title) */
   protected getTitle(): string {
     return this.getTheme().title;
+  }
+
+  /** By default, we respect the UI config flag (services.ui.autoFullscreen). */
+  protected shouldRequestFullscreen(): boolean {
+    const ui = this.getUiConfig();
+    return !!ui.autoFullscreen;
   }
 
   create() {
@@ -92,6 +105,9 @@ export abstract class BaseMenuScene extends Phaser.Scene {
 
   /** Override to inject transition or setup. */
   protected startGame() {
+    if (this.shouldRequestFullscreen()) {
+      try { requestFullscreenIfPossible(); } catch {}
+    }
     this.scene.start(this.getSceneKeys().play);
   }
 }

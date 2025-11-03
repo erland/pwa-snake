@@ -11,6 +11,8 @@ export type Vec2 = {
   sceneKeys?: SceneKeys;
 };
 
+export interface UIConfig { autoFullscreen?: boolean; }
+
 export type GameServices = {
   rng?: RNG;
   events?: EventBus;
@@ -18,6 +20,7 @@ export type GameServices = {
   // future: storage?, audio?, net?, analytics?
   theme?: Theme;
   sceneKeys?: SceneKeys;
+  ui?: UIConfig;
 };
 
 export type FixedStepConfig = { hz?: number; maxCatchUp?: number; theme?: Theme;

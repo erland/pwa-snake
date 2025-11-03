@@ -1,6 +1,5 @@
 import Phaser from "phaser";
 import { BaseMenuScene } from "../framework/scenes/BaseMenuScene";
-import { requestFullscreenIfPossible } from "../utils/fullscreen";
 
 export default class SnakeMenuScene extends BaseMenuScene {
   private highText?: Phaser.GameObjects.Text;
@@ -31,11 +30,5 @@ export default class SnakeMenuScene extends BaseMenuScene {
         this.highText = undefined;
       });
     }
-  }
-
-  /** Called by BaseMenuScene when the user confirms start. */
-  protected override startGame(): void {
-    try { requestFullscreenIfPossible(); } catch {}
-    this.scene.start(this.getSceneKeys().play);
   }
 }
