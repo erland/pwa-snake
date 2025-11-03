@@ -1,0 +1,13 @@
+{
+  "entryPoints": [
+    "src/framework/index.ts"
+  ],
+  "out": "docs/api",
+  "tsconfig": "tsconfig.json",
+  "excludePrivate": true,
+  "excludeProtected": false,
+  "excludeInternal": true,
+  "hideGenerator": true,
+  "categorizeByGroup": true,
+  "skipErrorChecking": true
+}

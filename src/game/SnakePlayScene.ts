@@ -1,10 +1,10 @@
 import Phaser from "phaser";
-import { BasePlayScene } from "../framework/scenes/BasePlayScene";
+import { BasePlayScene } from "../framework";
 import { SnakeInput } from "./SnakeInput";
 import * as L from "./logic";
 import type { Direction } from "./logic";
-import { BoardFitter } from "../framework/scene-helpers/BoardFitter";
-import { DPadOverlay } from "../framework/ui/DPadOverlay";
+import { BoardFitter } from "../framework";
+import { DPadOverlay } from "../framework";
 import { SnakeRenderer } from "./SnakeRenderer";
 import { PlayHud } from "./PlayHud";
 

@@ -1,4 +1,4 @@
-import type { Theme } from "../framework/ui/Theme";
+import type { Theme } from "../framework";
 
 export const snakeTheme: Theme = {
   title: "S N A K E",

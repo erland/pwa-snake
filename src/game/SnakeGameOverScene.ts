@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { BaseGameOverScene } from "../framework/scenes/BaseGameOverScene";
+import { BaseGameOverScene } from "../framework";
 
 /**
  * Snake-specific Game Over scene:

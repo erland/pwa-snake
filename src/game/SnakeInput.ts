@@ -1,5 +1,5 @@
-import { DirectionalInputController } from "../framework/input/DirectionalInputController";
-import { Dir4 } from "../framework/input/Dir4";
+import { DirectionalInputController } from "../framework";
+import { Dir4 } from "../framework";
 
 export class SnakeInput extends DirectionalInputController {
   protected onDirection(dir: Dir4): void {

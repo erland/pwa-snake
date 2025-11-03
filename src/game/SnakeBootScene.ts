@@ -1,6 +1,6 @@
 // src/game/SnakeBootScene.ts
 import { snakeTheme } from "./theme";
-import { BaseBootScene } from "../framework/scenes/BaseBootScene";
+import { BaseBootScene } from "../framework";
 
 export default class SnakeBootScene extends BaseBootScene {
   /** Supply the game theme to the framework service builder. */

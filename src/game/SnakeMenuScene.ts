@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { BaseMenuScene } from "../framework/scenes/BaseMenuScene";
+import { BaseMenuScene } from "../framework";
 
 export default class SnakeMenuScene extends BaseMenuScene {
   private highText?: Phaser.GameObjects.Text;

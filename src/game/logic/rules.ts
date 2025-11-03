@@ -1,7 +1,7 @@
 // src/game/logic/rules.ts
 import type { GridConfig, Point } from "./types";
-import type { RNG } from "../../framework/core/rng";
-import { randomInt } from "../../framework/core/rng";
+import type { RNG } from "../../framework";
+import { randomInt } from "../../framework";
 
 export function pointEq(a: Point, b: Point): boolean {
   return a.x === b.x && a.y === b.y;

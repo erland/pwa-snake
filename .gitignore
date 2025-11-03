@@ -14,6 +14,7 @@ dev-dist
 *.local
 digest*
 coverage
+docs/api
 
 # Editor directories and files
 .vscode/*
