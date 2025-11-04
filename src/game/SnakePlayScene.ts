@@ -4,25 +4,25 @@ import { SnakeInput } from "./SnakeInput";
 import * as L from "./logic";
 import { advance } from "./logic";
 import type { Direction } from "./logic";
-import { BoardFitter } from "../framework";
+
 import { DPadOverlay } from "../framework";
-import { SnakeRenderer } from "./SnakeRenderer";
-import { PlayHud } from "./PlayHud";
+import { BoardView } from "./BoardView";
+import { HudManager } from "./HudManager";
+
+
 
 export default class SnakePlayScene extends BasePlayScene {
   private state!: L.GameState;
   private nextDir!: Direction;
 
-  // Board transform root + helpers
-  private boardRoot!: Phaser.GameObjects.Container;
-  private fitter?: BoardFitter;
+  // View (boardRoot + fitter + renderer)
 
   // Renderer
-  private snakeRenderer?: SnakeRenderer;
   private pulse = 0; // food pulse anim
 
-  // HUD
-  private hud?: PlayHud;
+  // HUD manager
+  private hudMgr!: HudManager;
+  private view!: BoardView;
   private prevScore = 0;
 
   private rng = new L.MathRandom();
@@ -45,20 +45,10 @@ export default class SnakePlayScene extends BasePlayScene {
     this.hardReset();
 
     // Fresh state
-    this.state = L.createInitialState();
+    this.state = L.createInitialState(this.rng);
     this.nextDir = this.state.dir;
-
-    // RNG-based initial food
-    this.state.food = L.placeFood(this.state.snake, this.state.grid, this.rng);
-
-    // Root that we scale + center (board space starts at 0,0)
-    this.boardRoot = this.add.container(0, 0);
-
-    // HUD
-    let high = 0;
-    try { high = Number(localStorage.getItem("snakeHighScore") || "0"); } catch {}
-    this.hud = new PlayHud(this);
-    this.hud.init(high);
+    this.prevScore = 0;
+    this.pulse = 0;
 
     // Input mapping (attach once per run)
     this.events.on("move_left",  () => this.queue("left"));
@@ -66,7 +56,7 @@ export default class SnakePlayScene extends BasePlayScene {
     this.events.on("move_up",    () => this.queue("up"));
     this.events.on("move_down",  () => this.queue("down"));
 
-    // Optional on-screen D-pad (touch detection with override)
+    // Optional on-screen D-pad
     this.showDPad = this.detectTouch();
     try {
       const override = localStorage.getItem("snakeShowDpad");
@@ -74,40 +64,26 @@ export default class SnakePlayScene extends BasePlayScene {
       if (override === "0") this.showDPad = false;
     } catch {}
     if (this.showDPad) {
-      this.dpad = new DPadOverlay(this, {
-        events: { up: "move_up", down: "move_down", left: "move_left", right: "move_right" },
-      });
+      this.dpad = new DPadOverlay(this, { events: { up: "move_up", down: "move_down", left: "move_left", right: "move_right" } });
       this.dpad.attach();
     }
 
-    // Centralized scale+center helper
-    this.fitter = new BoardFitter(
-      this,
-      this.boardRoot,
-      () => this.getBoardPixelSize(),
-      { fitMode: "fit", integerZoom: false }
-    );
-    this.fitter.attach();
-
-    // Renderer
-    this.snakeRenderer = new SnakeRenderer(this, this.boardRoot, { tileSize: L.TILE_SIZE });
+    // View and HUD
+    this.view = new BoardView(this, () => this.getBoardPixelSize(), { tileSize: L.TILE_SIZE, fitMode: "fit", integerZoom: false });
+    this.hudMgr = new HudManager(this);
+    this.hudMgr.init();
 
     // Clean up on end of run
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.removeDirectionListeners();
-      this.hardReset();
-      try { this.fitter?.destroy(); } catch {}
-      this.fitter = undefined;
+      try { this.view?.destroy(); } catch {}
       try { this.dpad?.destroy(); } catch {}
       this.dpad = undefined;
-      try { this.snakeRenderer?.destroy(); } catch {}
-      this.snakeRenderer = undefined;
-      try { this.hud?.destroy(); } catch {}
-      this.hud = undefined;
+      try { this.hudMgr?.destroy(); } catch {}
     });
 
     // Initial draw
-    this.snakeRenderer.draw(this.state, this.pulse);
+    this.view.draw(this.state, this.pulse);
   }
 
   private queue(next: Direction) {
@@ -134,11 +110,11 @@ export default class SnakePlayScene extends BasePlayScene {
     // Pulse anim for food
     this.pulse += deltaMs * 0.02;
 
-    // HUD
-    this.hud?.updateScore(this.state.score);
+    // HUD manager
+    this.hudMgr?.update(this.state.score);
 
     // Redraw frame
-    this.snakeRenderer?.draw(this.state, this.pulse);
+    this.view?.draw(this.state, this.pulse);
 
     // Eat FX when score increases
     if (this.state.score > this.prevScore) {
@@ -156,9 +132,10 @@ export default class SnakePlayScene extends BasePlayScene {
   private onGameOver() {
     const finalScore = this.state.score;
     try {
-      const prev = Number(localStorage.getItem("snakeHighScore") || "0");
-      if (finalScore > prev) localStorage.setItem("snakeHighScore", String(finalScore));
-    } catch {}
+      this.hudMgr?.finalize(finalScore);
+    } catch {
+      // ignore persistence errors
+    }
     this.scene.start("GameOver", { score: finalScore });
   }
 
@@ -175,7 +152,7 @@ export default class SnakePlayScene extends BasePlayScene {
     const y = head.y * tile + tile / 2;
 
     const circ = this.add.circle(x, y, Math.max(3, Math.floor(tile * 0.15)), 0xffffff, 0.85);
-    this.boardRoot.add(circ);
+    this.view.root.add(circ);
     this.tweens.add({
       targets: circ,
       scale: { from: 1, to: 1.8 },
