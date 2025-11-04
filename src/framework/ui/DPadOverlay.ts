@@ -3,6 +3,10 @@ import Phaser from "phaser";
 export type DPadOptions = {
   /** Event names to emit on click/tap; defaults match the existing Snake events. */
   events?: { up?: string; down?: string; left?: string; right?: string };
+  radius?: number;  // default 26
+  gap?: number;     // default 10
+  anchor?: "bottom-right" | "bottom-left" | "bottom-center";
+  safeAreaProvider?: () => { left: number; right: number; top: number; bottom: number };
 };
 
 /**
@@ -15,27 +19,37 @@ export type DPadOptions = {
 export class DPadOverlay {
   private scene: Phaser.Scene;
   private opts: Required<DPadOptions>;
-  private nodes?: { up: Phaser.GameObjects.Container; down: Phaser.GameObjects.Container;
-                    left: Phaser.GameObjects.Container; right: Phaser.GameObjects.Container; };
+  private nodes?: { up: Phaser.GameObjects.Container; down: Phaser.GameObjects.Container; left: Phaser.GameObjects.Container; right: Phaser.GameObjects.Container; };
   private onResize?: () => void;
 
   constructor(scene: Phaser.Scene, opts: DPadOptions = {}) {
     this.scene = scene;
+    const defaultEvents = { up: "move_up", down: "move_down", left: "move_left", right: "move_right" };
     this.opts = {
-      events: {
-        up: opts.events?.up ?? "move_up",
-        down: opts.events?.down ?? "move_down",
-        left: opts.events?.left ?? "move_left",
-        right: opts.events?.right ?? "move_right",
-      },
+      events: { ...defaultEvents, ...(opts.events ?? {}) },
+      radius: opts.radius ?? 26,
+      gap: opts.gap ?? 10,
+      anchor: opts.anchor ?? "bottom-right",
+      safeAreaProvider: opts.safeAreaProvider ?? (() => {
+        const cs = getComputedStyle(document.documentElement);
+        const px = (v: string) => parseFloat(v || "0");
+        return {
+          left: px(cs.getPropertyValue("--safe-left")),
+          right: px(cs.getPropertyValue("--safe-right")),
+          top: px(cs.getPropertyValue("--safe-top")),
+          bottom: px(cs.getPropertyValue("--safe-bottom")),
+        };
+      }),
     };
   }
 
   attach(): void {
-    const up = this.makeCircleButton("↑", this.opts.events.up);
-    const down = this.makeCircleButton("↓", this.opts.events.down);
-    const left = this.makeCircleButton("←", this.opts.events.left);
-    const right = this.makeCircleButton("→", this.opts.events.right);
+    if (this.nodes) return;
+
+    const up = this.makeCircleButton("↑", this.opts.events.up!);
+    const down = this.makeCircleButton("↓", this.opts.events.down!);
+    const left = this.makeCircleButton("←", this.opts.events.left!);
+    const right = this.makeCircleButton("→", this.opts.events.right!);
     this.nodes = { up, down, left, right };
     this.position();
 
@@ -44,7 +58,7 @@ export class DPadOverlay {
   }
 
   private makeCircleButton(label: string, emit: string) {
-    const r = 26;
+    const r = this.opts.radius;
     const g = this.scene.add.graphics();
     g.fillStyle(0xffffff, 0.12).fillCircle(0, 0, r).lineStyle(2, 0xffffff, 0.5).strokeCircle(0, 0, r);
     const t = this.scene.add.text(0, 0, label, { fontFamily: "monospace", fontSize: "18px", color: "#ffffff" }).setOrigin(0.5);
@@ -69,20 +83,37 @@ export class DPadOverlay {
 
   private position() {
     if (!this.nodes) return;
-    const w = this.scene.scale.width, h = this.scene.scale.height;
-    const cs = getComputedStyle(document.documentElement);
-    const insetR = parseFloat(cs.getPropertyValue("--safe-right")) || 0;
-    const insetB = parseFloat(cs.getPropertyValue("--safe-bottom")) || 0;
-    const r = Math.max(18, Math.min(w, h) * 0.07);
-    const gap = Math.max(8, r * 0.25);
-    const margin = Math.max(8, Math.min(w, h) * 0.04);
-    const extent = 2 * r + gap;
-    const cx = w - (margin + insetR + extent);
-    const cy = h - (margin + insetB + extent);
-    this.nodes.up.setPosition(   cx,             cy - (r + gap));
-    this.nodes.down.setPosition( cx,             cy + (r + gap));
-    this.nodes.left.setPosition( cx - (r + gap), cy);
-    this.nodes.right.setPosition(cx + (r + gap), cy);
+    const { up, down, left, right } = this.nodes;
+
+    const inset = this.opts.safeAreaProvider!();
+    const cam = this.scene.cameras.main;
+    const w = cam.width;
+    const h = cam.height;
+    const margin = this.opts.gap;
+    const r = this.opts.radius;
+
+    // base anchor position
+    let baseX = 0, baseY = 0;
+    switch (this.opts.anchor) {
+      case "bottom-right":
+        baseX = w - inset.right - margin;
+        baseY = h - inset.bottom - margin;
+        break;
+      case "bottom-left":
+        baseX = inset.left + margin;
+        baseY = h - inset.bottom - margin;
+        break;
+      case "bottom-center":
+        baseX = w / 2;
+        baseY = h - inset.bottom - margin;
+        break;
+    }
+
+    // arrange as a cross centered around base
+    up.setPosition(baseX, baseY - (r * 2 + margin));
+    down.setPosition(baseX, baseY + (r * 2 + margin));
+    left.setPosition(baseX - (r * 2 + margin), baseY);
+    right.setPosition(baseX + (r * 2 + margin), baseY);
   }
 
   destroy(): void {

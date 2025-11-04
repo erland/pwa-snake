@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { BasePlayScene } from "../framework";
 import { SnakeInput } from "./SnakeInput";
 import * as L from "./logic";
+import { advance } from "./logic";
 import type { Direction } from "./logic";
 import { BoardFitter } from "../framework";
 import { DPadOverlay } from "../framework";
@@ -89,7 +90,7 @@ export default class SnakePlayScene extends BasePlayScene {
     this.fitter.attach();
 
     // Renderer
-    this.snakeRenderer = new SnakeRenderer(this, this.boardRoot);
+    this.snakeRenderer = new SnakeRenderer(this, this.boardRoot, { tileSize: L.TILE_SIZE });
 
     // Clean up on end of run
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
@@ -120,7 +121,7 @@ export default class SnakePlayScene extends BasePlayScene {
     // Apply queued direction then advance pure logic with RNG
     this.state.pendingDir = this.nextDir;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    this.state = (L as any).advance(this.state, this.rng);
+    this.state = advance(this.state, this.rng);
 
     // Game over?
     if (this.state.isGameOver) {

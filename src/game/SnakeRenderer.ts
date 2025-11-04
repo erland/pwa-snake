@@ -1,9 +1,25 @@
 import Phaser from "phaser";
 import * as L from "./logic";
 
+type Palette = {
+  bg: number;      // background (behind board)
+  dark: number;    // checkerboard dark
+  light: number;   // checkerboard light
+  frame: number;   // board frame/border
+  food: number;    // apple/food
+  edge: number;    // snake outline
+  snake: number;   // snake body
+  head: number;    // head highlight
+};
+
+export type SnakeRendererOptions = {
+  tileSize: number;
+  palette?: Partial<Palette>;
+};
+
 /**
- * SnakeRenderer draws the board, snake, and food into a dedicated Graphics object
- * under a provided root container (which can be scaled/centered externally).
+ * SnakeRenderer draws the board, snake (rounded with eyes), and pulsing food
+ * into a dedicated Graphics object under the provided root container.
  */
 export class SnakeRenderer {
   private scene: Phaser.Scene;
@@ -11,84 +27,105 @@ export class SnakeRenderer {
   private gfx: Phaser.GameObjects.Graphics;
   private disposed = false;
 
-  // Colors (kept here to make rendering self-contained & easy to theme later)
-  private COLOR_BG    = 0x0b0b12;
-  private COLOR_BDARK = 0x16203a;    // checkerboard dark
-  private COLOR_BLITE = 0x1b2748;    // checkerboard light
-  private COLOR_FRAME = 0x1c1c29;    // frame
-  private COLOR_TILE  = 0xffffff;    // checker alpha
-  private COLOR_FOOD  = 0xffe082;    // apple-ish
-  private COLOR_EDGE  = 0x1b5e20;    // outline
-  private COLOR_SNAKE = 0x43a047;    // body fill
-  private COLOR_HEAD  = 0xa5d6a7;    // head highlight
+  private tile: number;
+  private colors: Palette;
 
-  constructor(scene: Phaser.Scene, root: Phaser.GameObjects.Container) {
+  constructor(scene: Phaser.Scene, root: Phaser.GameObjects.Container, opts: SnakeRendererOptions) {
     this.scene = scene;
     this.root = root;
     this.gfx = scene.add.graphics();
     this.root.add(this.gfx);
+
+    // Defaults match your previous look-and-feel
+    const defaults: Palette = {
+      bg: 0x0b0b12,
+      dark: 0x16203a,
+      light: 0x1b2748,
+      frame: 0x1c1c29,
+      food: 0xffe082,
+      edge: 0x1b5e20,
+      snake: 0x43a047,
+      head: 0xa5d6a7,
+    };
+
+    this.tile = opts.tileSize;
+    this.colors = { ...defaults, ...(opts.palette ?? {}) };
   }
 
   /** Clear/draw entire frame based on provided state & animation pulse. */
   draw(state: L.GameState, pulse: number): void {
     if (this.disposed) return;
+
     const g = this.gfx;
-    const tile = L.TILE_SIZE;
+    const tile = this.tile;
     const { cols, rows } = state.grid;
     const w = cols * tile;
     const h = rows * tile;
 
     g.clear();
 
-    // checkerboard
+    // Optional solid bg behind the checker (kept subtle)
+    g.fillStyle(this.colors.bg, 1).fillRect(0, 0, w, h);
+
+    // Checkerboard (skip on tiny tiles to reduce overdraw)
     if (tile >= 6) {
       for (let y = 0; y < rows; y++) {
         for (let x = 0; x < cols; x++) {
-          if (((x ^ y) & 1) === 0) {
-            g.fillStyle(this.COLOR_BLITE, 1).fillRect(x * tile, y * tile, tile, tile);
-          } else {
-            g.fillStyle(this.COLOR_BDARK, 1).fillRect(x * tile, y * tile, tile, tile);
-          }
+          const c = ((x ^ y) & 1) === 0 ? this.colors.light : this.colors.dark;
+          g.fillStyle(c, 1).fillRect(x * tile, y * tile, tile, tile);
         }
       }
     }
 
-    // frame
+    // Frame/border
     const border = Math.max(2, Math.floor(tile / 8));
-    g.fillStyle(this.COLOR_FRAME, 0.85);
+    g.fillStyle(this.colors.frame, 0.85);
     g.fillRect(0, 0, w, border);
     g.fillRect(0, h - border, w, border);
     g.fillRect(0, 0, border, h);
     g.fillRect(w - border, 0, border, h);
 
-    // food (pulsing)
-    const f = state.food;
-    const cx = f.x * tile + tile / 2;
-    const cy = f.y * tile + tile / 2;
-    const baseR = Math.max(3, Math.floor(tile * 0.33));
-    const r = baseR * (1 + 0.06 * Math.sin(pulse * 0.5));
-    g.fillStyle(this.COLOR_FOOD, 1).fillCircle(cx, cy, r);
+    // Food (pulsing)
+    {
+      const f = state.food;
+      const cx = f.x * tile + tile / 2;
+      const cy = f.y * tile + tile / 2;
+      const baseR = Math.max(3, Math.floor(tile * 0.33));
+      const r = baseR * (1 + 0.06 * Math.sin(pulse * 0.5));
+      g.fillStyle(this.colors.food, 1).fillCircle(cx, cy, r);
+    }
 
-    // snake
+    // Snake (rounded tiles + outline + eyes on head)
     const outline = Math.max(1, Math.floor(tile * 0.10));
     const headRadius = Math.max(0, Math.floor(tile * 0.22));
     for (let i = 0; i < state.snake.length; i++) {
-      const s = state.snake[i];
-      const x = s.x * tile;
-      const y = s.y * tile;
+      const seg = state.snake[i];
+      const x = seg.x * tile;
+      const y = seg.y * tile;
       const isHead = i === 0;
       const radius = isHead ? headRadius : Math.max(0, Math.floor(tile * 0.2));
 
-      g.fillStyle(this.COLOR_EDGE, 0.6).fillRoundedRect(x, y, tile, tile, radius);
-      g.fillStyle(isHead ? this.COLOR_HEAD : this.COLOR_SNAKE, 1)
-        .fillRoundedRect(x + outline, y + outline, tile - 2 * outline, tile - 2 * outline, Math.max(0, radius - outline));
+      // Outer outline
+      g.fillStyle(this.colors.edge, 0.6).fillRoundedRect(x, y, tile, tile, radius);
 
+      // Inner fill
+      const innerColor = isHead ? this.colors.head : this.colors.snake;
+      g.fillStyle(innerColor, 1).fillRoundedRect(
+        x + outline,
+        y + outline,
+        tile - 2 * outline,
+        tile - 2 * outline,
+        Math.max(0, radius - outline)
+      );
+
+      // Eyes on head
       if (isHead && tile >= 8) {
         const eyeR = Math.max(1, Math.floor(tile * 0.08));
         const eyeOffset = Math.max(1, Math.floor(tile * 0.22));
         const front = Math.max(1, Math.floor(tile * 0.28));
         let ex1 = x + tile / 2, ey1 = y + tile / 2;
         let ex2 = ex1,            ey2 = ey1;
+
         switch (state.dir) {
           case "right": ex1 += front; ex2 += front; ey1 -= eyeOffset; ey2 += eyeOffset; break;
           case "left":  ex1 -= front; ex2 -= front; ey1 -= eyeOffset; ey2 += eyeOffset; break;
@@ -104,6 +141,5 @@ export class SnakeRenderer {
     if (this.disposed) return;
     this.disposed = true;
     try { this.gfx.destroy(); } catch {}
-    // children are owned by scene display list; graphics removal is enough
   }
 }
