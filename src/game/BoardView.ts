@@ -36,7 +36,7 @@ export class BoardView {
   }
 
   resize(): void {
-    this.fitter.layout();
+    this.fitter.update();
   }
 
   draw(state: L.GameState, pulse: number): void {
