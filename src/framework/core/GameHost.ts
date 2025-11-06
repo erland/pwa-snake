@@ -23,7 +23,7 @@ export class GameHost {
       !c.physics
         ? undefined
         : c.physics.system === "arcade"
-        ? { default: "arcade", arcade: c.physics.arcade ?? { gravity: { y: 0 }, debug: false } }
+        ? { default: "arcade", arcade: c.physics.arcade ?? { gravity: { x: 0, y: 0 }, debug: false } }
         : { default: "matter", matter: c.physics.matter };
 
     return new Phaser.Game({

@@ -15,10 +15,10 @@ export type DirectionalInputOptions = {
 
   // Keyboard bindings (overrides allowWASD if provided)
   bindings?: {
-    up?: Phaser.Input.Keyboard.KeyCodes[];
-    down?: Phaser.Input.Keyboard.KeyCodes[];
-    left?: Phaser.Input.Keyboard.KeyCodes[];
-    right?: Phaser.Input.Keyboard.KeyCodes[];
+    up?: number[];
+    down?: number[];
+    left?: number[];
+    right?: number[];
   };
 
   // Repeat/Throttle
