@@ -2,7 +2,7 @@
 import type { Direction, GameState, Point } from "./types";
 import { dirToVec, isOpposite } from "./direction";
 import { hitsSelf, hitsWall, pointEq, placeFood } from "./rules";
-import type { RNG } from "../../framework";
+import type { RNG } from "@erlandlindmark/pwa-game-2d-framework";
 
 /** Choose a new direction, rejecting 180° reversals. */
 export function resolveDirection(current: Direction, pending: Direction | null): Direction {

@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { BaseGameOverScene } from "../framework";
+import { BaseGameOverScene } from "@erlandlindmark/pwa-game-2d-framework";
 
 /**
  * Snake-specific Game Over scene:

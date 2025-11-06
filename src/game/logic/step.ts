@@ -1,6 +1,6 @@
 // src/game/logic/step.ts
 import type { Direction, GameState } from "./types";
-import type { RNG } from "../../framework";
+import type { RNG } from "@erlandlindmark/pwa-game-2d-framework";
 import { resolveDirection, computeNextHead, collisionAt, moveSnake, nextScore, nextFood } from "./advance_parts";
 
 /** Re-exported helper for tests that target the old path. */

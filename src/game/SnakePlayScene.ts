@@ -1,11 +1,11 @@
 import Phaser from "phaser";
-import { BasePlayScene } from "../framework";
+import { BasePlayScene } from "@erlandlindmark/pwa-game-2d-framework";
 import { SnakeInput } from "./SnakeInput";
 import * as L from "./logic";
 import { advance } from "./logic";
 import type { Direction } from "./logic";
 
-import { DPadOverlay } from "../framework";
+import { DPadOverlay } from "@erlandlindmark/pwa-game-2d-framework";
 import { BoardView } from "./BoardView";
 import { HudManager } from "./HudManager";
 

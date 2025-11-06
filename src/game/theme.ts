@@ -1,4 +1,4 @@
-import type { Theme } from "../framework";
+import type { Theme } from "@erlandlindmark/pwa-game-2d-framework";
 
 export const snakeTheme: Theme = {
   title: "S N A K E",

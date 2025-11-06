@@ -1,6 +1,6 @@
 // src/main.ts
 import "./pwa";
-import { GameHost } from "./framework";
+import { GameHost } from "@erlandlindmark/pwa-game-2d-framework";
 import SnakeBootScene from "./game/SnakeBootScene";
 import SnakeMenuScene from "./game/SnakeMenuScene";
 import SnakePlayScene from "./game/SnakePlayScene";

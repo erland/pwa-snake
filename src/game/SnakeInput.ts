@@ -1,5 +1,5 @@
-import { DirectionalInputController } from "../framework";
-import { Dir4 } from "../framework";
+import { DirectionalInputController } from "@erlandlindmark/pwa-game-2d-framework";
+import { Dir4 } from "@erlandlindmark/pwa-game-2d-framework";
 
 export class SnakeInput extends DirectionalInputController {
   protected onDirection(dir: Dir4): void {

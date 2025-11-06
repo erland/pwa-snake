@@ -1,6 +1,6 @@
 // src/game/SnakeBootScene.ts
 import { snakeTheme } from "./theme";
-import { BaseBootScene } from "../framework";
+import { BaseBootScene } from "@erlandlindmark/pwa-game-2d-framework";
 
 export default class SnakeBootScene extends BaseBootScene {
   /** Supply the game theme to the framework service builder. */

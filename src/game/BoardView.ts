@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { BoardFitter } from "../framework";
+import { BoardFitter } from "@erlandlindmark/pwa-game-2d-framework";
 import { SnakeRenderer, type SnakeRendererOptions } from "./SnakeRenderer";
 import * as L from "./logic";
 
